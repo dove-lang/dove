@@ -6,8 +6,8 @@
 
 <h2 align="center">A fast, minimal, and elegant programming language. ⚡️</h1>
 
-## Looking for the documentation? 📝
+### Looking for the documentation? 📝
 
 Take a look at the Dove docs -> https://dove-lang.github.io/dove-docs/ 
 
-## Usage
+### Usage
