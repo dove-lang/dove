@@ -3,8 +3,8 @@ use std::fs::File;
 use std::io;
 use std::io::{ErrorKind, Read, Write};
 
-#[macro_use(c)]
-extern crate cute;
+use dove::scanner::*;
+use dove::token::*;
 
 fn main() {
     // Collect command line arguments.
@@ -29,11 +29,10 @@ fn run_file(path: &String) -> io::Result<()> {
         },
     };
 
-    let mut buffer = Vec::new();
-    f.read_to_end(&mut buffer)?;
-    // Convert to char's.
-    let bytes = c![b as char, for b in buffer];
-    println!("{:?}", bytes);
+    let mut content = String::new();
+    f.read_to_string(&mut content).expect("Error when reading file.");
+
+    run(content.chars().collect());
 
     Ok(())
 }
@@ -49,6 +48,16 @@ fn run_prompt() {
             Ok(_) => {},
             Err(error) => println!("error: {}", error),
         }
-        println!("{}", &input);
+
+        run(input.chars().collect());
+    }
+}
+
+fn run(source: Vec<char>) {
+    let mut scanner = Scanner::new(source);
+    let tokens: &Vec<Token> = scanner.scan_tokens();
+
+    for token in tokens.iter() {
+        println!("{}", token.to_string());
     }
 }
