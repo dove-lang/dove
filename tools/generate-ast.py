@@ -18,11 +18,12 @@ class AstGenerator:
 
         f.write('use crate::token::*;\n\n')
 
-        f.write('trait Expr {\n')
-        f.write('    fn accept<V: Visitor>(&self, visitor: &mut V) -> V::Result;\n')
+        f.write('pub trait Expr {\n')
+        f.write('    fn accept<V: Visitor>(&self, visitor: &mut V) -> V::Result\n')
+        f.write('        where Self: Sized;\n')
         f.write('}\n\n')
 
-        f.write('trait Visitor {\n')
+        f.write('pub trait Visitor {\n')
         f.write('    type Result;\n\n')
         for type_ in types:
             type_name = type_.split(':')[0].strip()
