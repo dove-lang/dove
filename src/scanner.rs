@@ -45,6 +45,8 @@ impl Scanner {
             // One character.
             '(' => { self.add_token(TokenType::LEFT_PAREN, Literals::NULL); }
             ')' => { self.add_token(TokenType::RIGHT_PAREN, Literals::NULL); }
+            '[' => { self.add_token(TokenType::LEFT_BRACKET, Literals::NULL); }
+            ']' => { self.add_token(TokenType::RIGHT_BRACKET, Literals::NULL); }
             '{' => { self.add_token(TokenType::LEFT_BRACE, Literals::NULL); }
             '}' => { self.add_token(TokenType::RIGHT_BRACE, Literals::NULL); }
             ',' => { self.add_token(TokenType::COMMA, Literals::NULL); }
