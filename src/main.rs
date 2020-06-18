@@ -6,6 +6,9 @@ use std::io::{ErrorKind, Read, Write};
 use dove::scanner::*;
 use dove::token::*;
 
+use dove::ast_printer::*;
+use dove::expr::*;
+
 fn main() {
     // Collect command line arguments.
     // Note: The first value is always the name of the binary.
