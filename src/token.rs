@@ -26,7 +26,7 @@ impl Token {
 #[allow(non_camel_case_types)]
 pub enum TokenType {
     // Single-character tokens.
-    LEFT_PAREN, RIGHT_PAREN, LEFT_BRACE, RIGHT_BRACE,
+    LEFT_PAREN, RIGHT_PAREN, LEFT_BRACE, RIGHT_BRACE, LEFT_BRACKET, RIGHT_BRACKET,
     COMMA, DOT, MINUS, NEWLINE, PLUS, SLASH, STAR,
 
     // One or two character tokens.
