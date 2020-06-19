@@ -5,6 +5,8 @@ use std::io::{ErrorKind, Read, Write};
 
 use dove::scanner::*;
 use dove::token::*;
+use dove::interpreter::Interpreter;
+use dove::ast::Expr;
 
 
 fn main() {

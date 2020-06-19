@@ -55,3 +55,24 @@ pub enum Literals {
     Boolean(bool),
     Nil,
 }
+
+impl Literals {
+    pub fn unwrap_string(self) -> String {
+        match self {
+            Literals::String(s) => s,
+            _ => panic!("Cannot unwrap this literal to String.")
+        }
+    }
+    pub fn unwrap_number(self) -> f64 {
+        match self {
+            Literals::Number(n) => n,
+            _ => panic!("Cannot unwrap this literal to Number.")
+        }
+    }
+    pub fn unwrap_boolean(self) -> bool {
+        match self {
+            Literals::Boolean(b) => b,
+            _ => panic!("Cannot unwrap this literal to Boolean.")
+        }
+    }
+}

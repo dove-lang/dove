@@ -12,8 +12,8 @@ pub struct Environment {
 impl Environment {
     pub fn new(enclosing: Option<Box<Environment>>) -> Environment {
         match enclosing {
-            Some(enclosing) => { Environment { enclosing: Some(enclosing), values: HashMap::new() } }
-            None => { Environment { enclosing: None, values: HashMap::new() } }
+            Some(enclosing) => Environment{ enclosing: Some(enclosing), values: HashMap::new() },
+            None => Environment{ enclosing: None, values: HashMap::new() },
         }
     }
 
@@ -22,8 +22,8 @@ impl Environment {
             Some(v) => { v }
             None => {
                 match &self.enclosing {
-                    Some(e) => { e.get(name) }
-                    None => { panic!("{} not found in this environment.", name.lexeme); }
+                    Some(e) => e.get(name),
+                    None => panic!("{} not found in this environment.", name.lexeme),
                 }
             }
         }
@@ -34,8 +34,8 @@ impl Environment {
             self.values.insert(name.lexeme, value);
         } else {
             match &mut self.enclosing {
-                Some(e) => { e.assign(name, value); }
-                None => { panic!("{} not found in this environment.", name.lexeme); }
+                Some(e) => e.assign(name, value),
+                None => panic!("{} not found in this environment.", name.lexeme),
             }
         }
     }
