@@ -39,7 +39,7 @@ pub enum TokenType {
     IDENTIFIER, STRING, NUMBER,
 
     // Keywords.
-    AND, BREAK, CLASS, ELSE, FALSE, FUN, FOR, IN, IF, LET, NIL, NOT, OR,
+    AND, BREAK, CLASS, CONTINUE, ELSE, FALSE, FUN, FOR, FROM, IN, IF, LET, NIL, NOT, OR,
     PRINT, RETURN, SUPER, SELF, TRUE, WHILE,
 
     // End of file.

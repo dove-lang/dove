@@ -209,10 +209,12 @@ lazy_static! {
         m.insert("and".to_string(), TokenType::AND);
         m.insert("break".to_string(), TokenType::BREAK);
         m.insert("class".to_string(), TokenType::CLASS);
+        m.insert("continue".to_string(), TokenType::CONTINUE);
         m.insert("else".to_string(), TokenType::ELSE);
         m.insert("false".to_string(), TokenType::FALSE);
         m.insert("fun".to_string(), TokenType::FUN);
         m.insert("for".to_string(), TokenType::FOR);
+        m.insert("from".to_string(), TokenType::FROM);
         m.insert("in".to_string(), TokenType::IN);
         m.insert("if".to_string(), TokenType::IF);
         m.insert("let".to_string(), TokenType::LET);
