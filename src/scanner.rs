@@ -32,7 +32,7 @@ impl Scanner {
         self.tokens.push(Token::new(
             TokenType::EOF,
             "".to_string(),
-            Literals::NULL,
+            None,
             self.line
         ));
 
@@ -43,33 +43,33 @@ impl Scanner {
         let c: char = self.advance();
         match c {
             // One character.
-            '(' => { self.add_token(TokenType::LEFT_PAREN, Literals::NULL); }
-            ')' => { self.add_token(TokenType::RIGHT_PAREN, Literals::NULL); }
-            '[' => { self.add_token(TokenType::LEFT_BRACKET, Literals::NULL); }
-            ']' => { self.add_token(TokenType::RIGHT_BRACKET, Literals::NULL); }
-            '{' => { self.add_token(TokenType::LEFT_BRACE, Literals::NULL); }
-            '}' => { self.add_token(TokenType::RIGHT_BRACE, Literals::NULL); }
-            ',' => { self.add_token(TokenType::COMMA, Literals::NULL); }
-            '.' => { self.add_token(TokenType::DOT, Literals::NULL); }
-            '-' => { self.add_token(TokenType::MINUS, Literals::NULL); }
-            '+' => { self.add_token(TokenType::PLUS, Literals::NULL); }
-            '*' => { self.add_token(TokenType::STAR, Literals::NULL); }
+            '(' => { self.add_token(TokenType::LEFT_PAREN, None); }
+            ')' => { self.add_token(TokenType::RIGHT_PAREN, None); }
+            '[' => { self.add_token(TokenType::LEFT_BRACKET, None); }
+            ']' => { self.add_token(TokenType::RIGHT_BRACKET, None); }
+            '{' => { self.add_token(TokenType::LEFT_BRACE, None); }
+            '}' => { self.add_token(TokenType::RIGHT_BRACE, None); }
+            ',' => { self.add_token(TokenType::COMMA, None); }
+            '.' => { self.add_token(TokenType::DOT, None); }
+            '-' => { self.add_token(TokenType::MINUS, None); }
+            '+' => { self.add_token(TokenType::PLUS, None); }
+            '*' => { self.add_token(TokenType::STAR, None); }
             // Maybe two characters.
             '!' => {
                 let token_type = if self.match_char('=') { TokenType::BANG_EQUAL } else { TokenType::BANG };
-                self.add_token(token_type, Literals::NULL);
+                self.add_token(token_type, None);
             }
             '=' => {
                 let token_type = if self.match_char('=') { TokenType::EQUAL_EQUAL } else { TokenType::EQUAL };
-                self.add_token(token_type, Literals::NULL);
+                self.add_token(token_type, None);
             }
             '<' => {
                 let token_type = if self.match_char('=') { TokenType::LESS_EQUAL } else { TokenType::LESS };
-                self.add_token(token_type, Literals::NULL);
+                self.add_token(token_type, None);
             }
             '>' => {
                 let token_type = if self.match_char('=') { TokenType::GREATER_EQUAL } else { TokenType::GREATER };
-                self.add_token(token_type, Literals::NULL);
+                self.add_token(token_type, None);
             }
             // Slash or comment.
             '/' => {
@@ -78,13 +78,13 @@ impl Scanner {
                 } else if self.match_char('*') {
                     self.block_comment();
                 } else {
-                    self.add_token(TokenType::SLASH, Literals::NULL);
+                    self.add_token(TokenType::SLASH, None);
                 }
             }
             // Ignore whitespaces.
             ' ' | '\r' | '\t' => {}
             '\n' => {
-                self.add_token(TokenType::NEWLINE, Literals::NULL);
+                self.add_token(TokenType::NEWLINE, None);
                 self.line += 1;
             }
             '"' => { self.string(); }
@@ -112,7 +112,7 @@ impl Scanner {
             Some(v) => *v,
             None => TokenType::IDENTIFIER,
         };
-        self.add_token(token_type, Literals::NULL);
+        self.add_token(token_type, None);
     }
 
     fn number(&mut self) {
@@ -127,7 +127,7 @@ impl Scanner {
 
         let lexeme_slice: String = self.source[self.start..self.current].iter().collect();
         let literal_val: f64 = lexeme_slice.parse().unwrap();
-        self.add_token(TokenType::NUMBER, Literals::NUMBER(literal_val));
+        self.add_token(TokenType::NUMBER, Some(Literals::Number(literal_val)));
     }
 
     fn string(&mut self) {
@@ -145,7 +145,7 @@ impl Scanner {
         self.advance();
 
         let literal_val: String = self.source[(self.start + 1)..(self.current - 1)].iter().collect();
-        self.add_token(TokenType::STRING, Literals::STRING(literal_val));
+        self.add_token(TokenType::STRING, Some(Literals::String(literal_val)));
     }
 
     fn block_comment(&mut self) {
@@ -174,7 +174,7 @@ impl Scanner {
         self.source[self.current - 1]
     }
 
-    fn add_token(&mut self, token_type: TokenType, literal: Literals) {
+    fn add_token(&mut self, token_type: TokenType, literal: Option<Literals>) {
         let lexeme_slice: String = self.source[self.start..self.current].iter().collect();
         self.tokens.push(Token::new(
             token_type,
@@ -207,9 +207,11 @@ lazy_static! {
     static ref KEYWORDS: HashMap<String, TokenType> = {
         let mut m = HashMap::new();
         m.insert("and".to_string(), TokenType::AND);
+        m.insert("array".to_string(), TokenType::ARRAY);
         m.insert("break".to_string(), TokenType::BREAK);
         m.insert("class".to_string(), TokenType::CLASS);
         m.insert("continue".to_string(), TokenType::CONTINUE);
+        m.insert("dict".to_string(), TokenType::DICT);
         m.insert("else".to_string(), TokenType::ELSE);
         m.insert("false".to_string(), TokenType::FALSE);
         m.insert("fun".to_string(), TokenType::FUN);
@@ -226,6 +228,7 @@ lazy_static! {
         m.insert("super".to_string(), TokenType::SUPER);
         m.insert("self".to_string(), TokenType::SELF);
         m.insert("true".to_string(), TokenType::TRUE);
+        m.insert("tuple".to_string(), TokenType::TUPLE);
         m.insert("while".to_string(), TokenType::WHILE);
         m
     };
