@@ -1,6 +1,7 @@
 use crate::token::{Token, Literals};
 use crate::ast::Stmt;
 
+#[derive(Debug)]
 pub enum Expr {
     Assign   (Token, Box<Expr>),
     Binary   (Box<Expr>, Token, Box<Expr>),
