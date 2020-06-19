@@ -66,7 +66,7 @@ fn run(source: Vec<char>) {
     }
 
     let mut parser = Parser::new(tokens.to_owned());
-    match parser.expression() {
+    match parser.program() {
         Ok(ast) => println!("{:?}", ast),
         Err(err) => println!("{}", err.message),
     }

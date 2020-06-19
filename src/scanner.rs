@@ -104,7 +104,7 @@ impl Scanner {
     //--- Helpers start.
 
     fn identifier(&mut self) {
-        while self.peek().is_alphanumeric() { self.advance(); }
+        while self.peek().is_alphanumeric() || self.peek() == '_' { self.advance(); }
 
         // Check if identifier is reserved.
         let lexeme_slice: String = self.source[self.start..self.current].iter().collect();

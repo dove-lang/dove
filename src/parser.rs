@@ -20,31 +20,171 @@ impl Parser {
             tokens,
         }
     }
+
+    pub fn program(&mut self) -> Result<Vec<Stmt>> {
+        let mut statements = vec![];
+
+        while !self.is_at_end() {
+            statements.push(self.declaration()?);
+            self.skip_newlines();
+        }
+
+        self.advance();
+
+        Ok(statements)
+    }
 }
 
-// Statements
+// TODO: figure out where to skip newlines
+
+// Declarations / Statements
 impl Parser {
-    pub fn statement(&mut self) -> Result<Stmt> {
-        panic!()
+    fn declaration(&mut self) -> Result<Stmt> {
+        self.skip_newlines();
+
+        match self.peek().token_type {
+            TokenType::CLASS => self.class_decl(),
+            TokenType::FUN => self.fun_decl(),
+            TokenType::LET => self.var_decl(),
+            _ => self.statement(),
+        }
+    }
+
+    fn class_decl(&mut self) -> Result<Stmt> {
+        self.consume(TokenType::CLASS)?;
+        let identifier = self.consume(TokenType::IDENTIFIER)?;
+        let superclass = if self.consume(TokenType::FROM).is_ok() {
+            Some(self.consume(TokenType::IDENTIFIER)?)
+        } else {
+            None
+        };
+
+        self.consume(TokenType::LEFT_BRACE)?;
+        self.skip_newlines();
+
+        let mut functions = vec![];
+        while !self.check(TokenType::RIGHT_BRACE) {
+            functions.push(self.fun_decl()?);
+            self.skip_newlines();
+        }
+
+        self.consume(TokenType::RIGHT_BRACE)?;
+
+        Ok(Stmt::Class(identifier, superclass, functions))
+    }
+
+    fn fun_decl(&mut self) -> Result<Stmt> {
+        self.consume(TokenType::FUN)?;
+        let identifier = self.consume(TokenType::IDENTIFIER)?;
+        self.consume(TokenType::LEFT_PAREN)?;
+        let parameters = self.parameters()?;
+        self.consume(TokenType::RIGHT_PAREN)?;
+        let block = self.block()?;
+
+        Ok(Stmt::Function(identifier, parameters, Box::new(block)))
+    }
+
+    fn var_decl(&mut self) -> Result<Stmt> {
+        self.consume(TokenType::LET)?;
+        let variable = self.consume(TokenType::IDENTIFIER)?;
+        let expr = if self.consume(TokenType::EQUAL).is_ok() {
+            Some(self.expression()?)
+        } else {
+            None
+        };
+        self.consume_newline()?;
+        Ok(Stmt::Variable(variable, expr))
+    }
+
+    fn statement(&mut self) -> Result<Stmt> {
+        self.skip_newlines();
+
+        match self.peek().token_type {
+            TokenType::LEFT_BRACE => self.block(),
+            TokenType::FOR => self.for_stmt(),
+            TokenType::PRINT => self.print_stmt(),
+            TokenType::RETURN => self.return_stmt(),
+            TokenType::WHILE => self.while_stmt(),
+            TokenType::BREAK => self.break_stmt(),
+            _ => self.expr_stmt(),
+        }
     }
 
     fn block(&mut self) -> Result<Stmt> {
-        // TODO
         self.consume(TokenType::LEFT_BRACE)?;
+
+        let mut statements = vec![];
+
+        self.skip_newlines();
+        while !self.check(TokenType::RIGHT_BRACE) {
+            statements.push(self.declaration()?);
+            self.skip_newlines();
+        }
+
         self.consume(TokenType::RIGHT_BRACE)?;
-        Ok(Stmt::Block(vec![]))
+        Ok(Stmt::Block(statements))
+    }
+
+    fn for_stmt(&mut self) -> Result<Stmt> {
+        self.consume(TokenType::FOR)?;
+        let variable = self.consume(TokenType::IDENTIFIER)?;
+        self.consume(TokenType::IN)?;
+        let collection = self.consume(TokenType::IDENTIFIER)?;
+        let block = self.block()?;
+        Ok(Stmt::For(variable, collection, Box::new(block)))
+    }
+
+    fn print_stmt(&mut self) -> Result<Stmt> {
+        self.consume(TokenType::PRINT)?;
+        let expr = self.expression()?;
+        self.consume_newline()?;
+        Ok(Stmt::Print(expr))
+    }
+
+    fn return_stmt(&mut self) -> Result<Stmt> {
+        self.consume(TokenType::RETURN)?;
+        let expr = self.expression()?;
+        self.consume_newline()?;
+        Ok(Stmt::Return(expr))
+    }
+
+    fn while_stmt(&mut self) -> Result<Stmt> {
+        self.consume(TokenType::WHILE)?;
+        let condition = self.expression()?;
+        let block = self.block()?;
+        Ok(Stmt::While(condition, Box::new(block)))
+    }
+
+    fn break_stmt(&mut self) -> Result<Stmt> {
+        self.consume(TokenType::BREAK)?;
+        self.consume_newline()?;
+        Ok(Stmt::Break)
+    }
+
+    fn expr_stmt(&mut self) -> Result<Stmt> {
+        let expr = self.expression()?;
+        self.consume(TokenType::NEWLINE)?;
+        Ok(Stmt::Expression(expr))
     }
 }
 
 // Expressions
 impl Parser {
-    pub fn expression(&mut self) -> Result<Expr> {
+    fn expression(&mut self) -> Result<Expr> {
         self.assignment()
     }
 
     fn assignment(&mut self) -> Result<Expr> {
-        // TODO: do call later
-        self.if_expr()
+        // TODO: finish after call
+        if self.check(TokenType::IDENTIFIER) && self.peek_next().token_type == TokenType::EQUAL {
+            let variable = self.consume(TokenType::IDENTIFIER)?;
+            self.consume(TokenType::EQUAL)?;
+            let expr = self.if_expr()?;
+
+            Ok(Expr::Assign(variable, Box::new(expr)))
+        } else {
+            self.if_expr()
+        }
     }
 
     fn if_expr(&mut self) -> Result<Expr> {
@@ -54,9 +194,17 @@ impl Parser {
             // Then branch must be a block
             let then_stmt = self.block()?;
 
-            // Optional else branch
+            // Optional else/else if branch
             let else_stmt = match self.consume(TokenType::ELSE) {
-                Ok(()) => self.block()?,
+                Ok(_) => {
+                    // Continue with else if branch
+                    if self.peek().token_type == TokenType::IF {
+                        Stmt::Expression(self.if_expr()?)
+                    } else {
+                        // End with else branch
+                        self.block()?
+                    }
+                },
                 Err(_) => Stmt::Block(vec![]),
             };
 
@@ -175,7 +323,7 @@ impl Parser {
         } else if self.consume(TokenType::NIL).is_ok() {
             Ok(Expr::Literal(Literals::Nil))
 
-        } else if let Some(token) = self.match_token(&[TokenType::IDENTIFIER]) {
+        } else if let Ok(token) = self.consume(TokenType::IDENTIFIER) {
             Ok(Expr::Variable(token))
 
         } else if self.consume(TokenType::LEFT_PAREN).is_ok() {
@@ -186,9 +334,47 @@ impl Parser {
         } else {
             // TODO: add exprs like super, self, etc.
             Err(ParseError {
-                message: format!("unexpected token")
+                message: format!("unexpected token {:?}", self.peek()),
             })
         }
+    }
+}
+
+// Other parsing methods
+impl Parser {
+    // TODO: ensure this works properly, for empty, 1 parameter, yes/no trailing comma
+    fn parameters(&mut self) -> Result<Vec<Token>> {
+        let mut parameters = vec![];
+
+        loop {
+            if let Ok(token) = self.consume(TokenType::IDENTIFIER) {
+                parameters.push(token);
+
+                if self.consume(TokenType::COMMA).is_ok() {
+                    continue;
+                }
+            }
+            break;
+        }
+
+        Ok(parameters)
+    }
+
+    fn arguments(&mut self) -> Result<Vec<Expr>> {
+        let mut arguments = vec![];
+
+        loop {
+            if let Ok(expr) = self.expression() {
+                arguments.push(expr);
+
+                if self.consume(TokenType::COMMA).is_ok() {
+                    continue;
+                }
+            }
+            break;
+        }
+
+        Ok(arguments)
     }
 }
 
@@ -202,23 +388,23 @@ impl Parser {
         !self.is_at_end() && self.peek().token_type == token_type
     }
 
-    fn peek(&self) -> Token {
-        self.tokens[self.current].clone()
+    fn peek(&self) -> &Token {
+        &self.tokens[self.current]
     }
 
-    fn peek_next(&self) -> Token {
-        self.tokens[self.current].clone()
+    fn peek_next(&self) -> &Token {
+        &self.tokens[self.current + 1]
     }
 
-    fn previous(&self) -> Token {
-        self.tokens[self.current - 1].clone()
+    fn previous(&self) -> &Token {
+        &self.tokens[self.current - 1]
     }
 
     fn advance(&mut self) -> Token {
         if !self.is_at_end() {
             self.current += 1;
         }
-        self.previous()
+        self.previous().clone()
     }
 
     /// Return the current token and advance if it is one of the given types. Otherwise return None.
@@ -231,17 +417,27 @@ impl Parser {
         None
     }
 
-    /// Consume the currect token by advancing if the token type matches. Otherwise returns an error.
-    fn consume(&mut self, token_type: TokenType) -> Result<()> {
+    /// Consume the currect token and return it if the token type matches. Otherwise returns an error.
+    fn consume(&mut self, token_type: TokenType) -> Result<Token> {
         if self.check(token_type) {
-            self.advance();
-            Ok(())
+            Ok(self.advance())
         } else {
             let token = self.peek();
 
             Err(ParseError {
-                message: format!("expected type {:?} for token {}, at line {}", token_type, token.lexeme, token.line),
+                message: format!("expected type {:?} for token {:?}", token_type, token),
             })
         }
+    }
+
+    /// Consume at least one newline and skip the rest
+    fn consume_newline(&mut self) -> Result<()> {
+        self.consume(TokenType::NEWLINE)?;
+        self.skip_newlines();
+        Ok(())
+    }
+
+    fn skip_newlines(&mut self) {
+        while self.consume(TokenType::NEWLINE).is_ok() {}
     }
 }
