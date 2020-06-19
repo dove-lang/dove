@@ -6,8 +6,6 @@ use std::io::{ErrorKind, Read, Write};
 use dove::scanner::*;
 use dove::token::*;
 
-use dove::ast_printer::*;
-use dove::ast::*;
 
 fn main() {
     // Collect command line arguments.

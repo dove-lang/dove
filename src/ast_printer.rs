@@ -48,7 +48,7 @@ impl Visitor for AstPrinter {
         }
     }
 
-    fn visit_stmt(&mut self, stmt: &Stmt) -> Self::Result {
+    fn visit_stmt(&mut self, _stmt: &Stmt) -> Self::Result {
         panic!()
     }
 }
