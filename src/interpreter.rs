@@ -1,11 +1,11 @@
-use crate::ast::*;
-use crate::environment::Environment;
-use crate::token::*;
-use crate::ast_printer::AstPrinter;
-use crate::ast::Expr::Literal;
 use std::ops::Deref;
 use std::rc::Rc;
-use std::cell::RefCell;
+use std::cell::RefCell;use crate::ast::*;
+
+use crate::environment::Environment;
+use crate::token::*;
+use crate::ast::Expr::Literal;
+
 
 pub struct Interpreter {
     environment: Rc<RefCell<Environment>>,
@@ -302,12 +302,7 @@ fn stringify(literal: Literals) -> String {
         Literals::Nil => "nil".to_string(),
 
         // Remove the '.0' at the end of integer-valued floats.
-        Literals::Number(n) => {
-            let mut str_n = n.to_string();
-            // it seems like rust already displays f64 ending with .0 as int
-            // if n.fract() == 0.0 { str_n.truncate(str_n.len() - 2) }
-            str_n
-        },
+        Literals::Number(n) => n.to_string(),
         Literals::String(s) => s,
         Literals::Boolean(b) => b.to_string(),
     }
