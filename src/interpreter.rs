@@ -4,15 +4,17 @@ use crate::token::*;
 use crate::ast_printer::AstPrinter;
 use crate::ast::Expr::Literal;
 use std::ops::Deref;
+use std::rc::Rc;
+use std::cell::RefCell;
 
 pub struct Interpreter {
-    environment: Box<Environment>,
+    environment: Rc<RefCell<Environment>>,
 }
 
 impl Interpreter {
     pub fn new() -> Interpreter {
         Interpreter{
-            environment: Box::new(Environment::new(Option::None))
+            environment: Rc::new(RefCell::new(Environment::new(Option::None))),
         }
     }
 
@@ -31,12 +33,12 @@ impl Interpreter {
     }
 
     fn execute_block(&mut self, statements: &Vec<Stmt>, environment: Environment) {
-        let previous = self.environment.clone();
-        self.environment = Box::new(environment);
+        let previous = std::mem::replace(&mut self.environment, Rc::new(RefCell::new(environment)));
 
         for stmt in statements.iter() {
             self.execute(stmt);
         }
+
         self.environment = previous;
     }
 }
@@ -48,7 +50,7 @@ impl ExprVisitor for Interpreter {
         match expr {
             Expr::Assign(name, value) => {
                 let val = self.evaluate(value);
-                self.environment.assign(name.clone(), val.clone());
+                self.environment.borrow_mut().assign(name.clone(), val.clone());
                 val
             },
 
@@ -163,8 +165,7 @@ impl ExprVisitor for Interpreter {
             },
 
             Expr::Variable(name) => {
-                println!("{:?}", self.environment);
-                self.environment.get(name).clone()
+                self.environment.borrow().get(name)
             },
         }
     }
@@ -190,7 +191,7 @@ impl StmtVisitor for Interpreter {
 
                 match range_name.token_type {
                     TokenType::IDENTIFIER => {
-                        let range = self.environment.get(range_name);
+                        let range = self.environment.borrow().get(range_name);
 
                     },
                     _ => {}
@@ -210,7 +211,7 @@ impl StmtVisitor for Interpreter {
                     Some(i) => self.evaluate(i),
                     None => Literals::Nil,
                 };
-                self.environment.define(name.clone(), val)
+                self.environment.borrow_mut().define(name.clone(), val)
             },
 
             Stmt::While(condition, body) => {
@@ -270,7 +271,8 @@ fn stringify(literal: Literals) -> String {
         // Remove the '.0' at the end of integer-valued floats.
         Literals::Number(n) => {
             let mut str_n = n.to_string();
-            if n.fract() == 0.0 { str_n.truncate(str_n.len() - 2) }
+            // it seems like rust already displays f64 ending with .0 as int
+            // if n.fract() == 0.0 { str_n.truncate(str_n.len() - 2) }
             str_n
         },
         Literals::String(s) => s,
