@@ -38,8 +38,6 @@ impl Parser {
     }
 }
 
-// TODO: figure out where to skip newlines
-
 // Declarations / Statements
 impl Parser {
     fn declaration(&mut self) -> Result<Stmt> {
@@ -172,7 +170,7 @@ impl Parser {
 
     fn expr_stmt(&mut self) -> Result<Stmt> {
         let expr = self.expression()?;
-        self.consume(TokenType::NEWLINE)?;
+        self.consume_newline()?;
         Ok(Stmt::Expression(expr))
     }
 }
@@ -184,15 +182,23 @@ impl Parser {
     }
 
     fn assignment(&mut self) -> Result<Expr> {
-        // TODO: finish after call
-        if self.check(TokenType::IDENTIFIER) && self.peek_next().token_type == TokenType::EQUAL {
-            let variable = self.consume(TokenType::IDENTIFIER)?;
-            self.consume(TokenType::EQUAL)?;
-            let expr = self.if_expr()?;
+        let expr = self.if_expr()?;
 
-            Ok(Expr::Assign(variable, Box::new(expr)))
+        if self.consume(TokenType::EQUAL).is_ok() {
+            // If there is equal sign, parse assignment
+            // Parse expression here to allow assigning an assign expression
+            let value = self.expression()?;
+
+            // Check whether assign to variable or set object property
+            match expr {
+                Expr::Get(obj, name) => Ok(Expr::Set(obj, name, Box::new(value))),
+                Expr::Variable(variable) => Ok(Expr::Assign(variable, Box::new(value))),
+                _ => Err(ParseError {
+                    message: format!("cannot assign to {:?}", expr),
+                }),
+            }
         } else {
-            self.if_expr()
+            Ok(expr)
         }
     }
 
@@ -312,8 +318,25 @@ impl Parser {
     }
 
     fn call(&mut self) -> Result<Expr> {
-        // TODO: add call
-        self.primary()
+        let mut expr = self.primary()?;
+
+        loop {
+            if let Ok(paren) = self.consume(TokenType::LEFT_PAREN) {
+                let prev = self.set_ignore_newline(true);
+                let args = self.arguments()?;
+                self.set_ignore_newline(prev);
+                self.consume(TokenType::RIGHT_PAREN)?;
+                expr = Expr::Call(Box::new(expr), paren, args);
+
+            } else if self.consume(TokenType::DOT).is_ok() {
+                let name = self.consume(TokenType::IDENTIFIER)?;
+                expr = Expr::Get(Box::new(expr), name);
+            } else {
+                break;
+            }
+        }
+
+        Ok(expr)
     }
 
     fn primary(&mut self) -> Result<Expr> {
@@ -460,10 +483,13 @@ impl Parser {
         }
     }
 
-    /// Consume at least one newline and skip the rest
+    /// Consume at least one newline and skip the rest.
+    /// Does not need to skip if at the end of file.
     fn consume_newline(&mut self) -> Result<()> {
-        self.consume(TokenType::NEWLINE)?;
-        self.skip_newlines();
+        if !self.is_at_end() {
+            self.consume(TokenType::NEWLINE)?;
+            self.skip_newlines();
+        }
         Ok(())
     }
 
