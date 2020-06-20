@@ -36,12 +36,14 @@ fn run_file(path: &String) -> io::Result<()> {
     let mut content = String::new();
     f.read_to_string(&mut content).expect("Error when reading file.");
 
-    run(content.chars().collect());
+    let mut interpreter = Interpreter::new();
+    run(content.chars().collect(), &mut interpreter);
 
     Ok(())
 }
 
 fn run_prompt() {
+    let mut interpreter = Interpreter::new();
     loop {
         let mut input = String::new();
         print!(">>> ");
@@ -53,17 +55,16 @@ fn run_prompt() {
             Err(error) => println!("error: {}", error),
         }
 
-        run(input.chars().collect());
+        run(input.chars().collect(), &mut interpreter);
     }
 }
 
-fn run(source: Vec<char>) {
+fn run(source: Vec<char>, interpreter: &mut Interpreter) {
     let mut scanner = Scanner::new(source);
     let tokens: &Vec<Token> = scanner.scan_tokens();
 
     let mut parser = Parser::new(tokens.to_owned());
     let statements = parser.program().unwrap_or_default();
 
-    let mut interpreter = Interpreter::new();
     interpreter.interpret(statements);
 }

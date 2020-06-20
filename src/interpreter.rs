@@ -135,6 +135,11 @@ impl ExprVisitor for Interpreter {
                 self.evaluate(expression)
             },
 
+            // TODO: Implement visit Get expression.
+            Expr::Get(object, name) => {
+                Literals::Nil
+            }
+
             Expr::IfExpr(condition, then_branch, else_branch) => {
                 let condition_val = is_truthy(&self.evaluate(condition));
                 if condition_val {
@@ -147,9 +152,34 @@ impl ExprVisitor for Interpreter {
                 Literals::Nil
             },
 
+            // TODO: Implement visit Index expression.
+            Expr::Index(value, index) => {
+                Literals::Nil
+            }
+
             Expr::Literal(value) => {
                 value.clone()
             },
+
+            // TODO: Implement visit Set expression.
+            Expr::Set(object, name, value) => {
+                Literals::Nil
+            }
+
+            // TODO: Implement visit Self expression.
+            Expr::SelfExpr(keyword) => {
+                Literals::Nil
+            }
+
+            // TODO: Implement visit Super expression.
+            Expr::SuperExpr(keyword, method) => {
+                Literals::Nil
+            }
+
+            // TODO: Implement visit Slice expression.
+            Expr::Slice(value, start, end) => {
+                Literals::Nil
+            }
 
             Expr::Unary(operator, right) => {
                 let right_val = self.evaluate(right);
@@ -179,6 +209,9 @@ impl StmtVisitor for Interpreter {
 
             // TODO: Implement visit Break statement.
             Stmt::Break => {},
+
+            // TODO: Implement visit Continue statement.
+            Stmt::Continue => {},
 
             // TODO: Implement visit Class statement.
             Stmt::Class(name, superclass, methods) => {},
