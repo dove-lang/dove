@@ -1,3 +1,9 @@
+
+#[macro_use(e_red_ln)]
+extern crate colour;
+
+pub mod dove;
+
 pub mod scanner;
 pub mod token;
 pub mod ast;
