@@ -338,6 +338,14 @@ impl Parser {
             } else if self.consume(TokenType::DOT).is_ok() {
                 let name = self.consume(TokenType::IDENTIFIER)?;
                 expr = Expr::Get(Box::new(expr), name);
+
+            } else if self.check(TokenType::NEWLINE) && self.peek_next_non_newline().token_type == TokenType::DOT {
+                // Allows leading dot chain method call
+                self.skip_newlines();
+                self.consume(TokenType::DOT)?;
+                let name = self.consume(TokenType::IDENTIFIER)?;
+                expr = Expr::Get(Box::new(expr), name);
+
             } else {
                 break;
             }
@@ -438,15 +446,19 @@ impl Parser {
     fn peek_next(&self) -> &Token {
         if self.ignore_newline {
             // Need to skip past newlines if ignore newline is true
-            let mut index = self.current + 1;
-            while self.tokens[index].token_type == TokenType::NEWLINE && index < self.tokens.len() {
-                index += 1;
-            }
-
-            &self.tokens[index]
+            self.peek_next_non_newline()
         } else {
             &self.tokens[self.current + 1]
         }
+    }
+
+    fn peek_next_non_newline(&self) -> &Token {
+        let mut index = self.current + 1;
+        while self.tokens[index].token_type == TokenType::NEWLINE && index < self.tokens.len() {
+            index += 1;
+        }
+
+        &self.tokens[index]
     }
 
     fn previous(&self) -> &Token {
