@@ -21,7 +21,7 @@ impl AstPrinter {
     }
 }
 
-impl Visitor for AstPrinter {
+impl ExprVisitor for AstPrinter {
     type Result = String;
 
     fn visit_expr(&mut self, expr: &Expr) -> Self::Result {
@@ -44,11 +44,7 @@ impl Visitor for AstPrinter {
             Expr::Variable(name) => {
                 name.lexeme.clone()
             }
-            _ => "not implemented".to_string()
+            _ => "not implemented (ExprVisitor for AstPrinter)".to_string()
         }
-    }
-
-    fn visit_stmt(&mut self, stmt: &Stmt) -> Self::Result {
-        panic!()
     }
 }

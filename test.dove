@@ -1,20 +1,7 @@
-fun some() {
-    let a
-let b = 10
+let x = 1
+let y = 10
 
-    while true { one_liner().x = 10 }
-
-    let c = (
-        if a {
-            c
-        } else
-
-
-        {
-            10 + (
-                2 +
-                3
-            )
-        }
-    )
+while x < y {
+    print x
+    x = x + 1
 }

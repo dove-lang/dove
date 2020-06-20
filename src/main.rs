@@ -5,10 +5,10 @@ use std::io::{ErrorKind, Read, Write};
 
 use dove::scanner::*;
 use dove::token::*;
-
-use dove::ast_printer::*;
+use dove::interpreter::Interpreter;
+use dove::ast::Expr;
 use dove::parser::Parser;
-use dove::ast::*;
+
 
 fn main() {
     // Collect command line arguments.
@@ -36,12 +36,14 @@ fn run_file(path: &String) -> io::Result<()> {
     let mut content = String::new();
     f.read_to_string(&mut content).expect("Error when reading file.");
 
-    run(content.chars().collect());
+    let mut interpreter = Interpreter::new();
+    run(content.chars().collect(), &mut interpreter);
 
     Ok(())
 }
 
 fn run_prompt() {
+    let mut interpreter = Interpreter::new();
     loop {
         let mut input = String::new();
         print!(">>> ");
@@ -53,21 +55,16 @@ fn run_prompt() {
             Err(error) => println!("error: {}", error),
         }
 
-        run(input.chars().collect());
+        run(input.chars().collect(), &mut interpreter);
     }
 }
 
-fn run(source: Vec<char>) {
+fn run(source: Vec<char>, interpreter: &mut Interpreter) {
     let mut scanner = Scanner::new(source);
     let tokens: &Vec<Token> = scanner.scan_tokens();
 
-    for token in tokens.iter() {
-        println!("{}", token.to_string());
-    }
-
     let mut parser = Parser::new(tokens.to_owned());
-    match parser.program() {
-        Ok(ast) => println!("{:?}", ast),
-        Err(err) => println!("{}", err.message),
-    }
+    let statements = parser.program().unwrap_or_default();
+
+    interpreter.interpret(statements);
 }
