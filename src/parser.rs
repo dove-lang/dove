@@ -11,6 +11,8 @@ pub type Result<T> = std::result::Result<T, ParseError>;
 pub struct Parser {
     current: usize,
     tokens: Vec<Token>,
+    /// If this is true, automatically skips newline after advance.
+    ignore_newline: bool,
 }
 
 impl Parser {
@@ -18,6 +20,7 @@ impl Parser {
         Parser {
             current: 0,
             tokens,
+            ignore_newline: false,
         }
     }
 
@@ -77,7 +80,12 @@ impl Parser {
         self.consume(TokenType::FUN)?;
         let identifier = self.consume(TokenType::IDENTIFIER)?;
         self.consume(TokenType::LEFT_PAREN)?;
+
+        // Allow newlines in arguments
+        let prev = self.set_ignore_newline(true);
         let parameters = self.parameters()?;
+        self.set_ignore_newline(prev);
+
         self.consume(TokenType::RIGHT_PAREN)?;
         let block = self.block()?;
 
@@ -97,8 +105,6 @@ impl Parser {
     }
 
     fn statement(&mut self) -> Result<Stmt> {
-        self.skip_newlines();
-
         match self.peek().token_type {
             TokenType::LEFT_BRACE => self.block(),
             TokenType::FOR => self.for_stmt(),
@@ -111,16 +117,19 @@ impl Parser {
     }
 
     fn block(&mut self) -> Result<Stmt> {
+        self.skip_newlines();
+
         self.consume(TokenType::LEFT_BRACE)?;
+        self.skip_newlines();
+        let prev = self.set_ignore_newline(false);
 
         let mut statements = vec![];
-
-        self.skip_newlines();
         while !self.check(TokenType::RIGHT_BRACE) {
             statements.push(self.declaration()?);
             self.skip_newlines();
         }
 
+        self.set_ignore_newline(prev);
         self.consume(TokenType::RIGHT_BRACE)?;
         Ok(Stmt::Block(statements))
     }
@@ -327,8 +336,13 @@ impl Parser {
             Ok(Expr::Variable(token))
 
         } else if self.consume(TokenType::LEFT_PAREN).is_ok() {
+            // Ignore newlines when directly within a group
+            let prev = self.set_ignore_newline(true);
             let expr = self.expression()?;
+            self.set_ignore_newline(prev);
+
             self.consume(TokenType::RIGHT_PAREN)?;
+
             Ok(expr)
 
         } else {
@@ -342,7 +356,6 @@ impl Parser {
 
 // Other parsing methods
 impl Parser {
-    // TODO: ensure this works properly, for empty, 1 parameter, yes/no trailing comma
     fn parameters(&mut self) -> Result<Vec<Token>> {
         let mut parameters = vec![];
 
@@ -393,7 +406,17 @@ impl Parser {
     }
 
     fn peek_next(&self) -> &Token {
-        &self.tokens[self.current + 1]
+        if self.ignore_newline {
+            // Need to skip past newlines if ignore newline is true
+            let mut index = self.current + 1;
+            while self.tokens[index].token_type == TokenType::NEWLINE && index < self.tokens.len() {
+                index += 1;
+            }
+
+            &self.tokens[index]
+        } else {
+            &self.tokens[self.current + 1]
+        }
     }
 
     fn previous(&self) -> &Token {
@@ -401,10 +424,17 @@ impl Parser {
     }
 
     fn advance(&mut self) -> Token {
+        let token = self.peek().clone();
+
         if !self.is_at_end() {
             self.current += 1;
+
+            if self.ignore_newline {
+                self.skip_newlines();
+            }
         }
-        self.previous().clone()
+
+        token
     }
 
     /// Return the current token and advance if it is one of the given types. Otherwise return None.
@@ -439,5 +469,17 @@ impl Parser {
 
     fn skip_newlines(&mut self) {
         while self.consume(TokenType::NEWLINE).is_ok() {}
+    }
+
+    /// Set a new value for ignore_newline, skips newline if it is true, and return the previous value.
+    fn set_ignore_newline(&mut self, value: bool) -> bool {
+        let prev = self.ignore_newline;
+        self.ignore_newline = value;
+
+        if self.ignore_newline {
+            self.skip_newlines();
+        }
+
+        prev
     }
 }

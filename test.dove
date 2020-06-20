@@ -1,42 +1,44 @@
-let x = 1
-let y = 10
+fun main(
 
-fun some_func(arg1, arg2) {
-    x + y
-    y = 10
+    a,
 
+    b, c,
 
-    let z = if x == y {
-        10
+    d
+) {
+    let y = 1
+    let x = 10
 
-    } else if 3 + 2 < 10 {
+    let z = (x + 1
+    + 10)
 
-
-        y
-    }
-
-    return 10
-
-
-
+    y = (x
+        =
+        if x == 1
+        {
+            let x = 1
+            let y = 2
+            x = nil + (
+                x +
+                (
+                    asdf
+                ) ==
+                2
+            )
+        }
+    )
 }
 
-
-class Xd from SUPACLASS {
-    fun afuncion() {
-
-    }
-
-    fun long(xd, xd2, xd3,) {
-
-        while true and 1 + 1 == 2 {
-            print(i)
-
-
-            break
-
-        }
-
-        return 10
+class SomeClass {
+    fun init(a,
+    b, c, d
+    ,e)
+{
+        let x = 0
+        let y = (
+            1 +
+            2 - (3 ==
+            2)
+        )
     }
 }
