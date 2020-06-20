@@ -29,7 +29,7 @@ impl Parser {
 
         while !self.is_at_end() {
             statements.push(self.declaration()?);
-            self.skip_newlines();
+            self.consume_newline()?;
         }
 
         self.advance();
@@ -98,7 +98,7 @@ impl Parser {
         } else {
             None
         };
-        self.consume_newline()?;
+
         Ok(Stmt::Variable(variable, expr))
     }
 
@@ -124,7 +124,18 @@ impl Parser {
         let mut statements = vec![];
         while !self.check(TokenType::RIGHT_BRACE) {
             statements.push(self.declaration()?);
-            self.skip_newlines();
+
+            if self.consume_newline().is_err() {
+                // No newline as separator, cannot parse more statements
+                if self.check(TokenType::RIGHT_BRACE) {
+                    break;
+                } else {
+                    // Attempting to start another statement without newline - error
+                    return Err(ParseError {
+                        message: format!("expected newline before {:?}", self.peek()),
+                    });
+                }
+            }
         }
 
         self.set_ignore_newline(prev);
@@ -144,14 +155,12 @@ impl Parser {
     fn print_stmt(&mut self) -> Result<Stmt> {
         self.consume(TokenType::PRINT)?;
         let expr = self.expression()?;
-        self.consume_newline()?;
         Ok(Stmt::Print(expr))
     }
 
     fn return_stmt(&mut self) -> Result<Stmt> {
         self.consume(TokenType::RETURN)?;
         let expr = self.expression()?;
-        self.consume_newline()?;
         Ok(Stmt::Return(expr))
     }
 
@@ -164,13 +173,11 @@ impl Parser {
 
     fn break_stmt(&mut self) -> Result<Stmt> {
         self.consume(TokenType::BREAK)?;
-        self.consume_newline()?;
         Ok(Stmt::Break)
     }
 
     fn expr_stmt(&mut self) -> Result<Stmt> {
         let expr = self.expression()?;
-        self.consume_newline()?;
         Ok(Stmt::Expression(expr))
     }
 }
