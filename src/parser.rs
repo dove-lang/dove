@@ -11,6 +11,8 @@ pub type Result<T> = std::result::Result<T, ParseError>;
 pub struct Parser {
     current: usize,
     tokens: Vec<Token>,
+    /// If this is true, automatically skips newline after advance.
+    ignore_newline: bool,
 }
 
 impl Parser {
@@ -18,6 +20,7 @@ impl Parser {
         Parser {
             current: 0,
             tokens,
+            ignore_newline: false,
         }
     }
 
@@ -26,7 +29,7 @@ impl Parser {
 
         while !self.is_at_end() {
             statements.push(self.declaration()?);
-            self.skip_newlines();
+            self.consume_newline()?;
         }
 
         self.advance();
@@ -34,8 +37,6 @@ impl Parser {
         Ok(statements)
     }
 }
-
-// TODO: figure out where to skip newlines
 
 // Declarations / Statements
 impl Parser {
@@ -77,7 +78,12 @@ impl Parser {
         self.consume(TokenType::FUN)?;
         let identifier = self.consume(TokenType::IDENTIFIER)?;
         self.consume(TokenType::LEFT_PAREN)?;
+
+        // Allow newlines in arguments
+        let prev = self.set_ignore_newline(true);
         let parameters = self.parameters()?;
+        self.set_ignore_newline(prev);
+
         self.consume(TokenType::RIGHT_PAREN)?;
         let block = self.block()?;
 
@@ -92,13 +98,11 @@ impl Parser {
         } else {
             None
         };
-        self.consume_newline()?;
+
         Ok(Stmt::Variable(variable, expr))
     }
 
     fn statement(&mut self) -> Result<Stmt> {
-        self.skip_newlines();
-
         match self.peek().token_type {
             TokenType::LEFT_BRACE => self.block(),
             TokenType::FOR => self.for_stmt(),
@@ -111,16 +115,30 @@ impl Parser {
     }
 
     fn block(&mut self) -> Result<Stmt> {
+        self.skip_newlines();
+
         self.consume(TokenType::LEFT_BRACE)?;
+        self.skip_newlines();
+        let prev = self.set_ignore_newline(false);
 
         let mut statements = vec![];
-
-        self.skip_newlines();
         while !self.check(TokenType::RIGHT_BRACE) {
             statements.push(self.declaration()?);
-            self.skip_newlines();
+
+            if self.consume_newline().is_err() {
+                // No newline as separator, cannot parse more statements
+                if self.check(TokenType::RIGHT_BRACE) {
+                    break;
+                } else {
+                    // Attempting to start another statement without newline - error
+                    return Err(ParseError {
+                        message: format!("expected newline before {:?}", self.peek()),
+                    });
+                }
+            }
         }
 
+        self.set_ignore_newline(prev);
         self.consume(TokenType::RIGHT_BRACE)?;
         Ok(Stmt::Block(statements))
     }
@@ -137,14 +155,12 @@ impl Parser {
     fn print_stmt(&mut self) -> Result<Stmt> {
         self.consume(TokenType::PRINT)?;
         let expr = self.expression()?;
-        self.consume_newline()?;
         Ok(Stmt::Print(expr))
     }
 
     fn return_stmt(&mut self) -> Result<Stmt> {
         self.consume(TokenType::RETURN)?;
         let expr = self.expression()?;
-        self.consume_newline()?;
         Ok(Stmt::Return(expr))
     }
 
@@ -157,13 +173,11 @@ impl Parser {
 
     fn break_stmt(&mut self) -> Result<Stmt> {
         self.consume(TokenType::BREAK)?;
-        self.consume_newline()?;
         Ok(Stmt::Break)
     }
 
     fn expr_stmt(&mut self) -> Result<Stmt> {
         let expr = self.expression()?;
-        self.consume(TokenType::NEWLINE)?;
         Ok(Stmt::Expression(expr))
     }
 }
@@ -175,15 +189,23 @@ impl Parser {
     }
 
     fn assignment(&mut self) -> Result<Expr> {
-        // TODO: finish after call
-        if self.check(TokenType::IDENTIFIER) && self.peek_next().token_type == TokenType::EQUAL {
-            let variable = self.consume(TokenType::IDENTIFIER)?;
-            self.consume(TokenType::EQUAL)?;
-            let expr = self.if_expr()?;
+        let expr = self.if_expr()?;
 
-            Ok(Expr::Assign(variable, Box::new(expr)))
+        if self.consume(TokenType::EQUAL).is_ok() {
+            // If there is equal sign, parse assignment
+            // Parse expression here to allow assigning an assign expression
+            let value = self.expression()?;
+
+            // Check whether assign to variable or set object property
+            match expr {
+                Expr::Get(obj, name) => Ok(Expr::Set(obj, name, Box::new(value))),
+                Expr::Variable(variable) => Ok(Expr::Assign(variable, Box::new(value))),
+                _ => Err(ParseError {
+                    message: format!("cannot assign to {:?}", expr),
+                }),
+            }
         } else {
-            self.if_expr()
+            Ok(expr)
         }
     }
 
@@ -303,8 +325,25 @@ impl Parser {
     }
 
     fn call(&mut self) -> Result<Expr> {
-        // TODO: add call
-        self.primary()
+        let mut expr = self.primary()?;
+
+        loop {
+            if let Ok(paren) = self.consume(TokenType::LEFT_PAREN) {
+                let prev = self.set_ignore_newline(true);
+                let args = self.arguments()?;
+                self.set_ignore_newline(prev);
+                self.consume(TokenType::RIGHT_PAREN)?;
+                expr = Expr::Call(Box::new(expr), paren, args);
+
+            } else if self.consume(TokenType::DOT).is_ok() {
+                let name = self.consume(TokenType::IDENTIFIER)?;
+                expr = Expr::Get(Box::new(expr), name);
+            } else {
+                break;
+            }
+        }
+
+        Ok(expr)
     }
 
     fn primary(&mut self) -> Result<Expr> {
@@ -327,8 +366,13 @@ impl Parser {
             Ok(Expr::Variable(token))
 
         } else if self.consume(TokenType::LEFT_PAREN).is_ok() {
+            // Ignore newlines when directly within a group
+            let prev = self.set_ignore_newline(true);
             let expr = self.expression()?;
+            self.set_ignore_newline(prev);
+
             self.consume(TokenType::RIGHT_PAREN)?;
+
             Ok(expr)
 
         } else {
@@ -342,7 +386,6 @@ impl Parser {
 
 // Other parsing methods
 impl Parser {
-    // TODO: ensure this works properly, for empty, 1 parameter, yes/no trailing comma
     fn parameters(&mut self) -> Result<Vec<Token>> {
         let mut parameters = vec![];
 
@@ -393,7 +436,17 @@ impl Parser {
     }
 
     fn peek_next(&self) -> &Token {
-        &self.tokens[self.current + 1]
+        if self.ignore_newline {
+            // Need to skip past newlines if ignore newline is true
+            let mut index = self.current + 1;
+            while self.tokens[index].token_type == TokenType::NEWLINE && index < self.tokens.len() {
+                index += 1;
+            }
+
+            &self.tokens[index]
+        } else {
+            &self.tokens[self.current + 1]
+        }
     }
 
     fn previous(&self) -> &Token {
@@ -401,10 +454,17 @@ impl Parser {
     }
 
     fn advance(&mut self) -> Token {
+        let token = self.peek().clone();
+
         if !self.is_at_end() {
             self.current += 1;
+
+            if self.ignore_newline {
+                self.skip_newlines();
+            }
         }
-        self.previous().clone()
+
+        token
     }
 
     /// Return the current token and advance if it is one of the given types. Otherwise return None.
@@ -430,14 +490,29 @@ impl Parser {
         }
     }
 
-    /// Consume at least one newline and skip the rest
+    /// Consume at least one newline and skip the rest.
+    /// Does not need to skip if at the end of file.
     fn consume_newline(&mut self) -> Result<()> {
-        self.consume(TokenType::NEWLINE)?;
-        self.skip_newlines();
+        if !self.is_at_end() {
+            self.consume(TokenType::NEWLINE)?;
+            self.skip_newlines();
+        }
         Ok(())
     }
 
     fn skip_newlines(&mut self) {
         while self.consume(TokenType::NEWLINE).is_ok() {}
+    }
+
+    /// Set a new value for ignore_newline, skips newline if it is true, and return the previous value.
+    fn set_ignore_newline(&mut self, value: bool) -> bool {
+        let prev = self.ignore_newline;
+        self.ignore_newline = value;
+
+        if self.ignore_newline {
+            self.skip_newlines();
+        }
+
+        prev
     }
 }
