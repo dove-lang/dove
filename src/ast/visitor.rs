@@ -1,8 +1,11 @@
 use crate::ast::{Expr, Stmt};
 
-pub trait Visitor {
+pub trait ExprVisitor {
     type Result;
 
     fn visit_expr(&mut self, expr: &Expr) -> Self::Result;
-    fn visit_stmt(&mut self, stmt: &Stmt) -> Self::Result;
+}
+
+pub trait StmtVisitor {
+    fn visit_stmt(&mut self, stmt: &Stmt);
 }

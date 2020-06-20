@@ -1,6 +1,7 @@
-let x = function.some()
-    .ok()
+let x = 1
+let y = 10
 
-        .cool
-    .something()
-        .ok().yea
+while x < y {
+    print x
+    x = x + 1
+}

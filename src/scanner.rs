@@ -50,11 +50,11 @@ impl Scanner {
             '{' => { self.add_token(TokenType::LEFT_BRACE, None); }
             '}' => { self.add_token(TokenType::RIGHT_BRACE, None); }
             ',' => { self.add_token(TokenType::COMMA, None); }
-            '.' => { self.add_token(TokenType::DOT, None); }
+            ':' => { self.add_token(TokenType::COLON, None); }
             '-' => { self.add_token(TokenType::MINUS, None); }
             '+' => { self.add_token(TokenType::PLUS, None); }
             '*' => { self.add_token(TokenType::STAR, None); }
-            // Maybe two characters.
+            // May be one or two characters.
             '!' => {
                 let token_type = if self.match_char('=') { TokenType::BANG_EQUAL } else { TokenType::BANG };
                 self.add_token(token_type, None);
@@ -69,6 +69,13 @@ impl Scanner {
             }
             '>' => {
                 let token_type = if self.match_char('=') { TokenType::GREATER_EQUAL } else { TokenType::GREATER };
+                self.add_token(token_type, None);
+            }
+            // May be one or two or three characters.
+            '.' => {
+                let token_type = if self.match_char('.') {
+                    if self.match_char('.') { TokenType::DOT_DOT_DOT } else { TokenType::DOT_DOT }
+                } else { TokenType::DOT };
                 self.add_token(token_type, None);
             }
             // Slash or comment.

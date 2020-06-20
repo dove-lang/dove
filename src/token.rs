@@ -28,7 +28,7 @@ impl Token {
 pub enum TokenType {
     // Single-character tokens.
     LEFT_PAREN, RIGHT_PAREN, LEFT_BRACE, RIGHT_BRACE, LEFT_BRACKET, RIGHT_BRACKET,
-    COMMA, DOT, MINUS, NEWLINE, PLUS, SLASH, STAR,
+    COMMA, COLON, MINUS, NEWLINE, PLUS, SLASH, STAR,
 
     // One or two character tokens.
     BACKSLASH,
@@ -36,6 +36,9 @@ pub enum TokenType {
     EQUAL, EQUAL_EQUAL,
     GREATER, GREATER_EQUAL,
     LESS, LESS_EQUAL,
+
+    // One or two or three character tokens.
+    DOT, DOT_DOT, DOT_DOT_DOT,
 
     // Literals.
     IDENTIFIER, STRING, NUMBER,
@@ -54,4 +57,25 @@ pub enum Literals {
     Number(f64),
     Boolean(bool),
     Nil,
+}
+
+impl Literals {
+    pub fn unwrap_string(self) -> String {
+        match self {
+            Literals::String(s) => s,
+            _ => panic!("Cannot unwrap this literal to String.")
+        }
+    }
+    pub fn unwrap_number(self) -> f64 {
+        match self {
+            Literals::Number(n) => n,
+            _ => panic!("Cannot unwrap this literal to Number.")
+        }
+    }
+    pub fn unwrap_boolean(self) -> bool {
+        match self {
+            Literals::Boolean(b) => b,
+            _ => panic!("Cannot unwrap this literal to Boolean.")
+        }
+    }
 }
