@@ -7,6 +7,7 @@ use dove::scanner::*;
 use dove::token::*;
 use dove::interpreter::Interpreter;
 use dove::ast::Expr;
+use dove::parser::Parser;
 
 
 fn main() {
@@ -60,7 +61,9 @@ fn run(source: Vec<char>) {
     let mut scanner = Scanner::new(source);
     let tokens: &Vec<Token> = scanner.scan_tokens();
 
-    for token in tokens.iter() {
-        println!("{}", token.to_string());
-    }
+    let mut parser = Parser::new(tokens.to_owned());
+    let statements = parser.program().unwrap_or_default();
+
+    let mut interpreter = Interpreter::new();
+    interpreter.interpret(statements);
 }

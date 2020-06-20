@@ -3,20 +3,22 @@ use crate::environment::Environment;
 use crate::token::*;
 use crate::ast_printer::AstPrinter;
 use crate::ast::Expr::Literal;
+use std::ops::Deref;
 
 pub struct Interpreter {
-    environment: Box<Environment>
+    environment: Box<Environment>,
 }
 
 impl Interpreter {
     pub fn new() -> Interpreter {
-        Interpreter{ environment: Box::new(Environment::new(Option::None)) }
+        Interpreter{
+            environment: Box::new(Environment::new(Option::None))
+        }
     }
 
-    pub fn interpret(&mut self, exprs: Vec<Expr>) {
-        let mut printer = AstPrinter{};
-        for expr in exprs.iter() {
-            println!("{} evaluates to literal: {:?}", printer.print(expr), self.evaluate(expr));
+    pub fn interpret(&mut self, stmts: Vec<Stmt>) {
+        for stmt in stmts.iter() {
+            self.execute(stmt)
         }
     }
 
@@ -49,6 +51,7 @@ impl ExprVisitor for Interpreter {
                 self.environment.assign(name.clone(), val.clone());
                 val
             },
+
             Expr::Binary(left, operator, right) => {
                 let left_val  = self.evaluate(left);
                 let right_val = self.evaluate(right);
@@ -112,20 +115,40 @@ impl ExprVisitor for Interpreter {
                     _ => panic!("Unsupported binary operator: <{}>", operator.to_string()),
                 }
             },
+
             // TODO: Implement visit Call expression.
             Expr::Call(callee, paren, arguments) => {
+                let callee_val = self.evaluate(callee);
+
+                let mut argument_vals = Vec::new();
+                for argument in arguments.iter() {
+                    argument_vals.push(self.evaluate(argument));
+                }
+
+                // temp code
                 Literals::Nil
             },
+
             Expr::Grouping(expression) => {
                 self.evaluate(expression)
             },
-            // TODO: Implement visit If expression.
+
             Expr::IfExpr(condition, then_branch, else_branch) => {
+                let condition_val = is_truthy(&self.evaluate(condition));
+                if condition_val {
+                    self.execute(then_branch)
+                } else {
+                    self.execute(else_branch)
+                }
+
+                // temp code
                 Literals::Nil
             },
+
             Expr::Literal(value) => {
                 value.clone()
             },
+
             Expr::Unary(operator, right) => {
                 let right_val = self.evaluate(right);
 
@@ -138,7 +161,9 @@ impl ExprVisitor for Interpreter {
                     _ => panic!("Unsupported unary operator: <{}>", operator.to_string()),
                 }
             },
+
             Expr::Variable(name) => {
+                println!("{:?}", self.environment);
                 self.environment.get(name).clone()
             },
         }
@@ -149,15 +174,37 @@ impl ExprVisitor for Interpreter {
 impl StmtVisitor for Interpreter {
     fn visit_stmt(&mut self, stmt: &Stmt) {
         match stmt {
-            Stmt::Block(statements) => self.execute_block(statements, Environment::new(Option::None)),
+            Stmt::Block(statements) => self.execute_block(statements, Environment::new(Some(self.environment.clone()))),
+
+            // TODO: Implement visit Break statement.
+            Stmt::Break => {},
+
             // TODO: Implement visit Class statement.
             Stmt::Class(name, superclass, methods) => {},
+
             Stmt::Expression(expression) => { self.evaluate(expression); },
+
+            // TODO: Finish visit For statement.
+            Stmt::For(var_name, range_name, body) => {
+                let mut sub_env = Environment::new(Some(self.environment.clone()));
+
+                match range_name.token_type {
+                    TokenType::IDENTIFIER => {
+                        let range = self.environment.get(range_name);
+
+                    },
+                    _ => {}
+                }
+            },
+
             // TODO: Implement visit Function statement.
             Stmt::Function(name, params, body) => {},
+
             Stmt::Print(expression) => println!("{}", stringify(self.evaluate(expression))),
+
             // TODO: Implement visit Return statement.
             Stmt::Return(expression) => {},
+
             Stmt::Variable(name, initializer) => {
                 let val = match initializer {
                     Some(i) => self.evaluate(i),
@@ -165,8 +212,12 @@ impl StmtVisitor for Interpreter {
                 };
                 self.environment.define(name.clone(), val)
             },
-            // TODO: Implement visit While statement.
-            Stmt::While(condition, body) => {}
+
+            Stmt::While(condition, body) => {
+                while is_truthy(&self.evaluate(condition)) {
+                    self.execute(body)
+                }
+            }
         }
     }
 }

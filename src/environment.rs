@@ -6,18 +6,36 @@ use crate::token::Token;
 #[derive(Clone)]
 pub struct Environment {
     enclosing: Option<Box<Environment>>,
-    values: HashMap<String, Literals>,
+    pub values: HashMap<String, Literals>,
+    loop_status: LoopStatus,
+}
+
+#[derive(Clone)]
+enum LoopStatus {
+    NotLooping,
+    Looping,
+    Breaking,
+    Continuing,
 }
 
 impl Environment {
     pub fn new(enclosing: Option<Box<Environment>>) -> Environment {
         match enclosing {
-            Some(enclosing) => Environment{ enclosing: Some(enclosing), values: HashMap::new() },
-            None => Environment{ enclosing: None, values: HashMap::new() },
+            Some(enclosing) => Environment{
+                enclosing: Some(enclosing),
+                values: HashMap::new(),
+                loop_status: LoopStatus::NotLooping,
+            },
+            None => Environment{
+                enclosing: None,
+                values: HashMap::new(),
+                loop_status: LoopStatus::NotLooping
+            },
         }
     }
 
     pub fn get(&self, name: &Token) -> &Literals {
+        println!("{:?}", self.values);
         match self.values.get(&name.lexeme) {
             Some(v) => { v }
             None => {
@@ -42,5 +60,6 @@ impl Environment {
 
     pub fn define(&mut self, name: Token, value: Literals) {
         self.values.insert(name.lexeme, value);
+        println!("{:?}", self.values);
     }
 }
