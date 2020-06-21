@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use lazy_static::lazy_static;
 
 use crate::token::*;
+use crate::error_handler::*;
 
 pub struct Scanner {
     source: Vec<char>,
@@ -9,6 +10,8 @@ pub struct Scanner {
     start: usize,
     current: usize,
     line: usize,
+
+    error_handler: CompiletimeErrorHandler,
 }
 
 impl Scanner {
@@ -17,13 +20,14 @@ impl Scanner {
             source,
             tokens: Vec::new(),
             start: 0, current: 0, line: 1,
+            error_handler: CompiletimeErrorHandler::new(),
         }
     }
 }
 
 impl Scanner {
     pub fn scan_tokens(&mut self) -> &Vec<Token> {
-        while !self.is_at_end() {
+        while !self.is_at_end() && !self.error_handler.had_error {
             // At the beginning of the next lexeme.
             self.start = self.current;
             self.scan_token();
@@ -102,7 +106,7 @@ impl Scanner {
                 } else if c.is_alphabetic() {
                     self.identifier();
                 } else {
-                    panic!("Unexpected character. {}", c);
+                    self.error_handler.line_error(self.line, format!("Unexpected character: '{}'.", c));
                 }
             }
         }
@@ -145,7 +149,8 @@ impl Scanner {
 
         // Unterminated string found.
         if self.is_at_end() {
-            panic!("Unterminated string.");
+            self.error_handler.line_error(self.line, "Unterminated string.".to_string());
+            return;
         }
 
         // Consume closing '"'.
@@ -163,7 +168,8 @@ impl Scanner {
 
         // Unterminated block comment found.
         if self.is_at_end() {
-            panic!("Unterminated block comment.");
+            self.error_handler.line_error(self.line, "Unterminated block comment.".to_string());
+            return;
         }
 
         // Consume closing '*/'
