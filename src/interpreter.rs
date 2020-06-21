@@ -298,10 +298,10 @@ impl StmtVisitor for Interpreter {
             Stmt::Block(statements) => self.execute_block(statements, Environment::new(Some(self.environment.clone()))),
 
             // TODO: Implement visit Break statement.
-            Stmt::Break => {},
+            Stmt::Break(_) => {},
 
             // TODO: Implement visit Continue statement.
-            Stmt::Continue => {},
+            Stmt::Continue(_) => {},
 
             // TODO: Implement visit Class statement.
             Stmt::Class(name, superclass, methods) => {},
