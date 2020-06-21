@@ -50,19 +50,19 @@ impl Interpreter {
             Literals::Number(_) => { match right {
                 Literals::Number(_) => Ok(()),
                 _ => {
-                    let rt_err = RuntimeError::new(operator.clone(),
-                                                   format!("Operands of '{}' must be two numbers", operator.lexeme));
-                    self.error_handler.runtime_error(rt_err);
-                    Err(())
+                    self.report_err(operator.clone(), format!("Operands of '{}' must be two numbers", operator.lexeme))
                 }
             }},
             _ => {
-                let rt_err = RuntimeError::new(operator.clone(),
-                                               format!("Operands of '{}' must be two numbers", operator.lexeme));
-                self.error_handler.runtime_error(rt_err);
-                Err(())
+                self.report_err(operator.clone(), format!("Operands of '{}' must be two numbers", operator.lexeme))
             }
         }
+    }
+
+    fn report_err(&mut self, token: Token, message: String) -> Result<(), ()> {
+        let rt_err = RuntimeError::new(token.clone(), message);
+        self.error_handler.runtime_error(rt_err);
+        Err(())
     }
 }
 
@@ -76,8 +76,14 @@ impl ExprVisitor for Interpreter {
                     Ok(v) => v,
                     Err(()) => return Err(()),
                 };
-                self.environment.borrow_mut().assign(name.clone(), val.clone());
-                Ok(val)
+                let res = self.environment.borrow_mut().assign(name.clone(), val.clone());
+                match res {
+                    Ok(_) => Ok(val),
+                    Err(_) => {
+                        self.report_err(name.clone(), format!("Cannot assign value to '{}', as it is not found in the scope", name.lexeme));
+                        Err(())
+                    }
+                }
             },
 
             Expr::Binary(left, operator, right) => {
@@ -284,7 +290,14 @@ impl ExprVisitor for Interpreter {
             },
 
             Expr::Variable(name) => {
-                Ok(self.environment.borrow().get(name))
+                let res = self.environment.borrow().get(name);
+                match res {
+                    Ok(literal) => Ok(literal),
+                    Err(_) => {
+                        self.report_err(name.clone(), format!("Variable '{}' not found in scope.", name.lexeme));
+                        Err(())
+                    }
+                }
             },
         }
     }
@@ -313,8 +326,6 @@ impl StmtVisitor for Interpreter {
 
                 match range_name.token_type {
                     TokenType::IDENTIFIER => {
-                        let range = self.environment.borrow().get(range_name);
-
                     },
                     _ => {}
                 }

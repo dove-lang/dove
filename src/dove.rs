@@ -23,7 +23,7 @@ impl Dove {
         }
     }
 
-    pub fn run_file(mut self, path: &String) {
+    pub fn run_file(self, path: &String) {
         let mut f = match File::open(path) {
             Ok(file) => file,
             Err(error) => match error.kind() {
