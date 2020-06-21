@@ -29,32 +29,31 @@ impl Environment {
         }
     }
 
-    pub fn get(&self, name: &Token) -> Literals {
-        println!("{:?}", self.values);
+    pub fn get(&self, name: &Token) -> Result<Literals, ()> {
         match self.values.get(&name.lexeme) {
-            Some(v) => v.clone(),
+            Some(v) => Ok(v.clone()),
             None => {
                 match &self.enclosing {
                     Some(e) => e.borrow().get(name),
-                    None => panic!("{} not found in this environment.", name.lexeme),
+                    None => Err(()),
                 }
             }
         }
     }
 
-    pub fn assign(&mut self, name: Token, value: Literals) {
+    pub fn assign(&mut self, name: Token, value: Literals) -> Result<(), ()> {
         if self.values.contains_key(&name.lexeme) {
             self.values.insert(name.lexeme, value);
+            Ok(())
         } else {
             match &mut self.enclosing {
                 Some(e) => e.borrow_mut().assign(name, value),
-                None => panic!("{} not found in this environment.", name.lexeme),
+                None => Err(()),
             }
         }
     }
 
     pub fn define(&mut self, name: Token, value: Literals) {
         self.values.insert(name.lexeme, value);
-        println!("{:?}", self.values);
     }
 }

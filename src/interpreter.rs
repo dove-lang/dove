@@ -1,20 +1,20 @@
-use std::ops::Deref;
 use std::rc::Rc;
 use std::cell::RefCell;use crate::ast::*;
 
 use crate::environment::Environment;
 use crate::token::*;
-use crate::ast::Expr::Literal;
-
+use crate::error_handler::*;
 
 pub struct Interpreter {
     environment: Rc<RefCell<Environment>>,
+    error_handler: RuntimeErrorHandler,
 }
 
 impl Interpreter {
     pub fn new() -> Interpreter {
         Interpreter{
             environment: Rc::new(RefCell::new(Environment::new(Option::None))),
+            error_handler: RuntimeErrorHandler::new(),
         }
     }
 
@@ -24,7 +24,7 @@ impl Interpreter {
         }
     }
 
-    fn evaluate(&mut self, expr: &Expr) -> Literals {
+    fn evaluate(&mut self, expr: &Expr) -> Result<Literals, ()> {
         self.visit_expr(expr)
     }
 
@@ -41,80 +41,156 @@ impl Interpreter {
 
         self.environment = previous;
     }
+
+    fn check_number_operand(&mut self, operator: &Token, left: &Literals, right: &Literals) -> Result<(), ()> {
+        match left {
+            Literals::Number(_) => { match right {
+                Literals::Number(_) => Ok(()),
+                _ => {
+                    self.report_err(operator.clone(), format!("Operands of '{}' must be two numbers.", operator.lexeme));
+                    Err(())
+                }
+            }},
+            _ => {
+                self.report_err(operator.clone(), format!("Operands of '{}' must be two numbers.", operator.lexeme));
+                Err(())
+            }
+        }
+    }
+
+    fn report_err(&mut self, token: Token, message: String) {
+        let rt_err = RuntimeError::new(token.clone(), message);
+        self.error_handler.runtime_error(rt_err);
+    }
 }
 
 impl ExprVisitor for Interpreter {
     type Result = Literals;
 
-    fn visit_expr(&mut self, expr: &Expr) -> Self::Result {
+    fn visit_expr(&mut self, expr: &Expr) -> Result<Self::Result, ()> {
         match expr {
             Expr::Assign(name, value) => {
-                let val = self.evaluate(value);
-                self.environment.borrow_mut().assign(name.clone(), val.clone());
-                val
+                let val = match self.evaluate(value) {
+                    Ok(v) => v,
+                    Err(()) => return Err(()),
+                };
+                let res = self.environment.borrow_mut().assign(name.clone(), val.clone());
+                match res {
+                    Ok(_) => Ok(val),
+                    Err(_) => {
+                        self.report_err(name.clone(), format!("Cannot assign value to '{}', as it is not found in scope.", name.lexeme));
+                        Err(())
+                    }
+                }
             },
 
             Expr::Binary(left, operator, right) => {
-                let left_val  = self.evaluate(left);
-                let right_val = self.evaluate(right);
+                let left_val  = match self.evaluate(left) {
+                    Ok(v) => v,
+                    Err(()) => return Err(()),
+                };
+                let right_val = match self.evaluate(right) {
+                    Ok(v) => v,
+                    Err(()) => return Err(()),
+                };
 
                 match operator.token_type {
-                    TokenType::AND => Literals::Boolean(is_truthy(&left_val) && is_truthy(&right_val)),
-                    TokenType::OR => Literals::Boolean(is_truthy(&left_val) || is_truthy(&right_val)),
+                    TokenType::AND => Ok(Literals::Boolean(is_truthy(&left_val) && is_truthy(&right_val))),
+                    TokenType::OR => Ok(Literals::Boolean(is_truthy(&left_val) || is_truthy(&right_val))),
                     TokenType::GREATER => {
-                        check_number_operand(operator, &left_val, &right_val);
-                        Literals::Boolean(left_val.unwrap_number() > right_val.unwrap_number())
+                        match self.check_number_operand(operator, &left_val, &right_val) {
+                            Ok(_) => Ok(Literals::Boolean(left_val.unwrap_number() > right_val.unwrap_number())),
+                            Err(_) => Err(())
+                        }
                     },
                     TokenType::GREATER_EQUAL => {
-                        check_number_operand(operator, &left_val, &right_val);
-                        Literals::Boolean(left_val.unwrap_number() >= right_val.unwrap_number())
+                        match self.check_number_operand(operator, &left_val, &right_val) {
+                            Ok(_) => Ok(Literals::Boolean(left_val.unwrap_number() >= right_val.unwrap_number())),
+                            Err(_) => Err(())
+                        }
                     },
                     TokenType::LESS => {
-                        check_number_operand(operator, &left_val, &right_val);
-                        Literals::Boolean(left_val.unwrap_number() < right_val.unwrap_number())
+                        match self.check_number_operand(operator, &left_val, &right_val) {
+                            Ok(_) => Ok(Literals::Boolean(left_val.unwrap_number() < right_val.unwrap_number())),
+                            Err(_) => Err(())
+                        }
                     },
                     TokenType::LESS_EQUAL => {
-                        check_number_operand(operator, &left_val, &right_val);
-                        Literals::Boolean(left_val.unwrap_number() <= right_val.unwrap_number())
+                        match self.check_number_operand(operator, &left_val, &right_val) {
+                            Ok(_) => Ok(Literals::Boolean(left_val.unwrap_number() <= right_val.unwrap_number())),
+                            Err(_) => Err(())
+                        }
                     },
-                    TokenType::BANG_EQUAL => Literals::Boolean(!is_equal(&left_val, &right_val)),
-                    TokenType::EQUAL_EQUAL => Literals::Boolean(is_equal(&left_val, &right_val)),
+                    TokenType::BANG_EQUAL => Ok(Literals::Boolean(!is_equal(&left_val, &right_val))),
+                    TokenType::EQUAL_EQUAL => Ok(Literals::Boolean(is_equal(&left_val, &right_val))),
                     TokenType::MINUS => {
-                        check_number_operand(operator, &left_val, &right_val);
-                        Literals::Number(left_val.unwrap_number() - right_val.unwrap_number())
+                        match self.check_number_operand(operator, &left_val, &right_val) {
+                            Ok(_) => Ok(Literals::Number(left_val.unwrap_number() - right_val.unwrap_number())),
+                            Err(_) => Err(())
+                        }
                     },
                     TokenType::PLUS => {
                         match left_val {
                             Literals::Number(l) => { match right_val {
-                                Literals::Number(r) => Literals::Number(l + r),
-                                _ => panic!("Operands of <{}> must be two numbers or two strings.", operator.to_string())
+                                Literals::Number(r) => Ok(Literals::Number(l + r)),
+                                _ => {
+                                    self.report_err(operator.clone(),
+                                                    format!("Operands of '{}' must be two numbers or two strings.", operator.lexeme));
+                                    Err(())
+                                }
                             }},
                             Literals::String(l) => { match right_val {
-                                Literals::String(r) => Literals::String(format!("{}{}", l, r)),
-                                _ => panic!("Operands of <{}> must be two numbers or two strings.", operator.to_string())
+                                Literals::String(r) => Ok(Literals::String(format!("{}{}", l, r))),
+                                _ => {
+                                    self.report_err(operator.clone(),
+                                                    format!("Operands of '{}' must be two numbers or two strings.", operator.lexeme));
+                                    Err(())
+                                }
                             }},
-                            _ => panic!("Operands of <{}> must be two numbers or two strings.", operator.to_string()),
+                            _ => {
+                                self.report_err(operator.clone(),
+                                                format!("Operands of '{}' must be two numbers or two strings.", operator.lexeme));
+                                Err(())
+                            },
                         }
                     },
                     TokenType::SLASH => {
-                        check_number_operand(operator, &left_val, &right_val);
-                        Literals::Number(left_val.unwrap_number() / right_val.unwrap_number())
+                        match self.check_number_operand(operator, &left_val, &right_val) {
+                            Ok(_) => Ok(Literals::Number(left_val.unwrap_number() / right_val.unwrap_number())),
+                            Err(_) => Err(())
+                        }
                     },
                     TokenType::STAR => {
                         match left_val {
                             Literals::Number(l) => { match right_val {
-                                Literals::Number(r) => Literals::Number(l * r),
-                                Literals::String(r) => Literals::String(r.repeat(l as usize)),
-                                _ => panic!("Operands of <{}> must be two numbers or a string and a number.", operator.to_string()),
+                                Literals::Number(r) => Ok(Literals::Number(l * r)),
+                                Literals::String(r) => Ok(Literals::String(r.repeat(l as usize))),
+                                _ => {
+                                    self.report_err(operator.clone(),
+                                                    format!("Operands of '{}' must be two numbers or a string and a number.", operator.lexeme));
+                                    Err(())
+                                }
                             }},
                             Literals::String(l) => { match right_val {
-                                Literals::Number(r) => Literals::String(l.repeat(r as usize)),
-                                _ => panic!("Operands of <{}> must be two numbers or a string and a number.", operator.to_string()),
+                                Literals::Number(r) => Ok(Literals::String(l.repeat(r as usize))),
+                                _ => {
+                                    self.report_err(operator.clone(),
+                                                    format!("Operands of '{}' must be two numbers or a string and a number.", operator.lexeme));
+                                    Err(())
+                                }
                             }},
-                            _ => panic!("Operands of <{}> must be two numbers or a string and a number.", operator.to_string()),
+                            _ => {
+                                self.report_err(operator.clone(),
+                                                format!("Operands of '{}' must be two numbers or a string and a number.", operator.lexeme));
+                                Err(())
+                            }
                         }
                     },
-                    _ => panic!("Unsupported binary operator: <{}>", operator.to_string()),
+                    _ => {
+                        self.report_err(operator.clone(),
+                                        format!("Unsupported operator: '{}'.", operator.lexeme));
+                        Err(())
+                    }
                 }
             },
 
@@ -128,7 +204,7 @@ impl ExprVisitor for Interpreter {
                 }
 
                 // temp code
-                Literals::Nil
+                Ok(Literals::Nil)
             },
 
             Expr::Grouping(expression) => {
@@ -137,11 +213,11 @@ impl ExprVisitor for Interpreter {
 
             // TODO: Implement visit Get expression.
             Expr::Get(object, name) => {
-                Literals::Nil
+                Ok(Literals::Nil)
             }
 
             Expr::IfExpr(condition, then_branch, else_branch) => {
-                let condition_val = is_truthy(&self.evaluate(condition));
+                let condition_val = is_truthy(&self.evaluate(condition).unwrap());
                 if condition_val {
                     self.execute(then_branch)
                 } else {
@@ -149,53 +225,66 @@ impl ExprVisitor for Interpreter {
                 }
 
                 // temp code
-                Literals::Nil
+                Ok(Literals::Nil)
             },
 
             // TODO: Implement visit Index expression.
             Expr::Index(value, index) => {
-                Literals::Nil
+                Ok(Literals::Nil)
             }
 
             Expr::Literal(value) => {
-                value.clone()
+                Ok(value.clone())
             },
 
             // TODO: Implement visit Set expression.
             Expr::Set(object, name, value) => {
-                Literals::Nil
+                Ok(Literals::Nil)
             }
 
             // TODO: Implement visit Self expression.
             Expr::SelfExpr(keyword) => {
-                Literals::Nil
+                Ok(Literals::Nil)
             }
 
             // TODO: Implement visit Super expression.
             Expr::SuperExpr(keyword, method) => {
-                Literals::Nil
+                Ok(Literals::Nil)
             }
 
             // TODO: Implement visit Slice expression.
             Expr::Slice(value, start, end) => {
-                Literals::Nil
+                Ok(Literals::Nil)
             }
 
             Expr::Unary(operator, right) => {
-                let right_val = self.evaluate(right);
+                let right_val = self.evaluate(right).unwrap();
 
                 match operator.token_type {
-                    TokenType::BANG => Literals::Boolean(!is_truthy(&right_val)),
+                    TokenType::BANG => Ok(Literals::Boolean(!is_truthy(&right_val))),
                     TokenType::MINUS => { match right_val {
-                        Literals::Number(n) => Literals::Number(-n),
-                        _ => panic!("Operands of <{}> must be a number.", operator.to_string()),
+                        Literals::Number(n) => Ok(Literals::Number(-n)),
+                        _ => {
+                            self.report_err(operator.clone(), format!("Operand of '{}' must be a number.", operator.lexeme));
+                            Err(())
+                        }
                     }},
-                    _ => panic!("Unsupported unary operator: <{}>", operator.to_string()),
+                    _ => {
+                        self.report_err(operator.clone(), format!("Operand of '{}' must be a number.", operator.lexeme));
+                        Err(())
+                    }
                 }
             },
 
             Expr::Variable(name) => {
-                self.environment.borrow().get(name)
+                let res = self.environment.borrow().get(name);
+                match res {
+                    Ok(literal) => Ok(literal),
+                    Err(_) => {
+                        self.report_err(name.clone(), format!("Variable '{}' not found in scope.", name.lexeme));
+                        Err(())
+                    }
+                }
             },
         }
     }
@@ -216,16 +305,21 @@ impl StmtVisitor for Interpreter {
             // TODO: Implement visit Class statement.
             Stmt::Class(name, superclass, methods) => {},
 
-            Stmt::Expression(expression) => { self.evaluate(expression); },
+            Stmt::Expression(expression) => {
+                let res = self.evaluate(expression);
+                match res {
+                    Ok(_) => {},
+                    // TODO: Handle possible runtime error after add tokens to Stmt::Expression.
+                    Err(_) => {}
+                }
+            },
 
             // TODO: Finish visit For statement.
             Stmt::For(var_name, range_name, body) => {
-                let mut sub_env = Environment::new(Some(self.environment.clone()));
+                let sub_env = Environment::new(Some(self.environment.clone()));
 
                 match range_name.token_type {
                     TokenType::IDENTIFIER => {
-                        let range = self.environment.borrow().get(range_name);
-
                     },
                     _ => {}
                 }
@@ -234,21 +328,29 @@ impl StmtVisitor for Interpreter {
             // TODO: Implement visit Function statement.
             Stmt::Function(name, params, body) => {},
 
-            Stmt::Print(expression) => println!("{}", stringify(self.evaluate(expression))),
+            Stmt::Print(expression) => {
+                match self.evaluate(expression) {
+                    Ok(literal) => println!("{}", stringify(literal)),
+                    Err(_) => {}
+                }
+            },
 
             // TODO: Implement visit Return statement.
             Stmt::Return(expression) => {},
 
             Stmt::Variable(name, initializer) => {
                 let val = match initializer {
-                    Some(i) => self.evaluate(i),
+                    Some(i) => match self.evaluate(i) {
+                        Ok(literal) => literal,
+                        Err(()) => Literals::Nil,
+                    },
                     None => Literals::Nil,
                 };
                 self.environment.borrow_mut().define(name.clone(), val)
             },
 
             Stmt::While(condition, body) => {
-                while is_truthy(&self.evaluate(condition)) {
+                while is_truthy(&self.evaluate(condition).unwrap()) {
                     self.execute(body)
                 }
             }
@@ -284,16 +386,6 @@ fn is_equal(literal_a: &Literals, literal_b: &Literals) -> bool {
             Literals::Nil => true,
             _ => false,
         }},
-    }
-}
-
-fn check_number_operand(operator: &Token, left: &Literals, right: &Literals) {
-    match left {
-        Literals::Number(_) => { match right {
-            Literals::Number(_) => return,
-            _ => panic!("Operands of <{}> must be two numbers.", operator.to_string())
-        }},
-        _ => panic!("Operands of <{}> must be two numbers.", operator.to_string())
     }
 }
 
