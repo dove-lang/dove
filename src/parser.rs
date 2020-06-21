@@ -110,6 +110,7 @@ impl Parser {
             TokenType::RETURN => self.return_stmt(),
             TokenType::WHILE => self.while_stmt(),
             TokenType::BREAK => self.break_stmt(),
+            TokenType::CONTINUE => self.continue_stmt(),
             _ => self.expr_stmt(),
         }
     }
@@ -174,6 +175,11 @@ impl Parser {
     fn break_stmt(&mut self) -> Result<Stmt> {
         self.consume(TokenType::BREAK)?;
         Ok(Stmt::Break)
+    }
+
+    fn continue_stmt(&mut self) -> Result<Stmt> {
+        self.consume(TokenType::CONTINUE)?;
+        Ok(Stmt::Continue)
     }
 
     fn expr_stmt(&mut self) -> Result<Stmt> {
@@ -391,6 +397,14 @@ impl Parser {
 
         } else if let Ok(token) = self.consume(TokenType::IDENTIFIER) {
             Ok(Expr::Variable(token))
+
+        } else if let Ok(token) = self.consume(TokenType::SELF) {
+            Ok(Expr::SelfExpr(token))
+
+        } else if let Ok(token) = self.consume(TokenType::SUPER) {
+            self.consume(TokenType::DOT)?;
+            let function = self.consume(TokenType::IDENTIFIER)?;
+            Ok(Expr::SuperExpr(token, function))
 
         } else if self.consume(TokenType::LEFT_PAREN).is_ok() {
             // Ignore newlines when directly within a group
