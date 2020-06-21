@@ -1,11 +1,13 @@
 use crate::ast::{Expr, Stmt};
 use crate::token::{Token, TokenType, Literals};
+use crate::error_handler::CompiletimeErrorHandler;
 
-pub struct ParseError {
-    pub message: String,
+enum ParseError {
+    Token(Token, String),
+    Line(usize, String),
 }
 
-pub type Result<T> = std::result::Result<T, ParseError>;
+type Result<T> = std::result::Result<T, ParseError>;
 
 // Precondition: tokens.len() > 0
 pub struct Parser {
@@ -13,6 +15,8 @@ pub struct Parser {
     tokens: Vec<Token>,
     /// If this is true, automatically skips newline after advance.
     ignore_newline: bool,
+
+    error_handler: CompiletimeErrorHandler,
 }
 
 impl Parser {
@@ -21,33 +25,73 @@ impl Parser {
             current: 0,
             tokens,
             ignore_newline: false,
+            error_handler: CompiletimeErrorHandler {
+                had_error: false,
+            },
         }
     }
 
-    pub fn program(&mut self) -> Result<Vec<Stmt>> {
+    pub fn program(&mut self) -> Vec<Stmt> {
         let mut statements = vec![];
 
         while !self.is_at_end() {
-            statements.push(self.declaration()?);
-            self.consume_newline()?;
+            if let Some(statement) = self.declaration() {
+                if self.consume_newline().is_ok() {
+                    statements.push(statement);
+                } else {
+                    self.handle_newline_error();
+                }
+            }
         }
 
         self.advance();
 
-        Ok(statements)
+        statements
+    }
+
+    fn handle_error(&mut self, error: ParseError) {
+        self.synchronize();
+
+        match error {
+            ParseError::Token(token, message) => self.error_handler.token_error(token, message),
+            ParseError::Line(line, message) => self.error_handler.line_error(line, message),
+        }
+    }
+
+    fn handle_newline_error(&mut self) {
+        self.handle_error(ParseError::Token(self.peek().clone(), "Expected newline after statement.".to_string()));
+    }
+
+    /// Synchronize an error, skip tokens until end of current statement
+    fn synchronize(&mut self) {
+        // TODO: find better synchronization point
+        if self.ignore_newline {
+            // Currently inside (), [], or {}.
+        }
+
+        while !self.is_at_end() && self.advance().token_type != TokenType::NEWLINE {}
     }
 }
 
 // Declarations / Statements
 impl Parser {
-    fn declaration(&mut self) -> Result<Stmt> {
+    fn declaration(&mut self) -> Option<Stmt> {
         self.skip_newlines();
 
-        match self.peek().token_type {
+        let declaration = match self.peek().token_type {
             TokenType::CLASS => self.class_decl(),
             TokenType::FUN => self.fun_decl(),
             TokenType::LET => self.var_decl(),
             _ => self.statement(),
+        };
+
+        // Handle error in declaration
+        match declaration {
+            Ok(declaration) => Some(declaration),
+            Err(error) => {
+                self.handle_error(error);
+                None
+            },
         }
     }
 
@@ -64,7 +108,7 @@ impl Parser {
         self.skip_newlines();
 
         let mut functions = vec![];
-        while !self.check(TokenType::RIGHT_BRACE) {
+        while !self.check(TokenType::RIGHT_BRACE) && !self.is_at_end() {
             functions.push(self.fun_decl()?);
             self.skip_newlines();
         }
@@ -123,18 +167,19 @@ impl Parser {
         let prev = self.set_ignore_newline(false);
 
         let mut statements = vec![];
-        while !self.check(TokenType::RIGHT_BRACE) {
-            statements.push(self.declaration()?);
+        while !self.check(TokenType::RIGHT_BRACE) && !self.is_at_end() {
+            if let Some(statement) = self.declaration() {
+                if self.consume_newline().is_ok() {
+                    statements.push(statement);
 
-            if self.consume_newline().is_err() {
-                // No newline as separator, cannot parse more statements
-                if self.check(TokenType::RIGHT_BRACE) {
-                    break;
                 } else {
-                    // Attempting to start another statement without newline - error
-                    return Err(ParseError {
-                        message: format!("expected newline before {:?}", self.peek()),
-                    });
+                    // No newline as separator, cannot parse more statements
+                    if self.check(TokenType::RIGHT_BRACE) {
+                        break;
+                    } else {
+                        // Attempting to start another statement without newline - error
+                        self.handle_newline_error();
+                    }
                 }
             }
         }
@@ -207,9 +252,7 @@ impl Parser {
                 Expr::Get(obj, name) => Ok(Expr::Set(obj, name, Box::new(value))),
                 Expr::IndexGet(expr, index) => Ok(Expr::IndexSet(expr, index, Box::new(value))),
                 Expr::Variable(variable) => Ok(Expr::Assign(variable, Box::new(value))),
-                _ => Err(ParseError {
-                    message: format!("cannot assign to {:?}", expr),
-                }),
+                _ => Err(ParseError::Line(self.peek().line, "Cannot use assignment.".to_string())),
             }
         } else {
             Ok(expr)
@@ -329,7 +372,7 @@ impl Parser {
     fn unary(&mut self) -> Result<Expr> {
         let mut unary_ops = vec![];
 
-        while let Some(op) = self.match_token(&[TokenType::BANG, TokenType::MINUS]) {
+        while let Some(op) = self.match_token(&[TokenType::BANG, TokenType::MINUS, TokenType::NOT]) {
             unary_ops.push(op);
         }
 
@@ -418,9 +461,7 @@ impl Parser {
 
         } else {
             // TODO: add exprs like super, self, etc.
-            Err(ParseError {
-                message: format!("unexpected token {:?}", self.peek()),
-            })
+            Err(ParseError::Token(self.peek().clone(), "Unexpected token.".to_string()))
         }
     }
 }
@@ -527,11 +568,7 @@ impl Parser {
         if self.check(token_type) {
             Ok(self.advance())
         } else {
-            let token = self.peek();
-
-            Err(ParseError {
-                message: format!("expected type {:?} for token {:?}", token_type, token),
-            })
+            Err(ParseError::Token(self.peek().clone(), format!("Expected type {:?}", token_type)))
         }
     }
 

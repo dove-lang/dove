@@ -261,7 +261,7 @@ impl ExprVisitor for Interpreter {
                 let right_val = self.evaluate(right).unwrap();
 
                 match operator.token_type {
-                    TokenType::BANG => Ok(Literals::Boolean(!is_truthy(&right_val))),
+                    TokenType::BANG | TokenType::NOT => Ok(Literals::Boolean(!is_truthy(&right_val))),
                     TokenType::MINUS => { match right_val {
                         Literals::Number(n) => Ok(Literals::Number(-n)),
                         _ => {

@@ -78,7 +78,7 @@ impl Dove {
         let tokens = scanner.scan_tokens();
 
         let mut parser = Parser::new(tokens.to_owned());
-        let statements = parser.program().unwrap_or_default();
+        let statements = parser.program();
 
         // Stops if there is a syntax error.
         // if self.had_error {
