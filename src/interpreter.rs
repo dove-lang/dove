@@ -153,7 +153,11 @@ impl ExprVisitor for Interpreter {
             },
 
             // TODO: Implement visit Index expression.
-            Expr::Index(value, index) => {
+            Expr::IndexGet(value, index) => {
+                Literals::Nil
+            }
+
+            Expr::IndexSet(expr, index, value) => {
                 Literals::Nil
             }
 
@@ -173,11 +177,6 @@ impl ExprVisitor for Interpreter {
 
             // TODO: Implement visit Super expression.
             Expr::SuperExpr(keyword, method) => {
-                Literals::Nil
-            }
-
-            // TODO: Implement visit Slice expression.
-            Expr::Slice(value, start, end) => {
                 Literals::Nil
             }
 
@@ -222,13 +221,14 @@ impl StmtVisitor for Interpreter {
             Stmt::For(var_name, range_name, body) => {
                 let mut sub_env = Environment::new(Some(self.environment.clone()));
 
-                match range_name.token_type {
-                    TokenType::IDENTIFIER => {
-                        let range = self.environment.borrow().get(range_name);
+                // TODO
+                // match range_name.token_type {
+                //     TokenType::IDENTIFIER => {
+                //         let range = self.environment.borrow().get(range_name);
 
-                    },
-                    _ => {}
-                }
+                //     },
+                //     _ => {}
+                // }
             },
 
             // TODO: Implement visit Function statement.

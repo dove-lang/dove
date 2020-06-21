@@ -63,7 +63,12 @@ fn run(source: Vec<char>, interpreter: &mut Interpreter) {
     let tokens: &Vec<Token> = scanner.scan_tokens();
 
     let mut parser = Parser::new(tokens.to_owned());
-    let statements = parser.program().unwrap_or_default();
+    let statements = match parser.program() {
+        Ok(statements) => statements,
+        Err(err) => panic!(err.message),
+    };
+
+    println!("{:?}", statements);
 
     interpreter.interpret(statements);
 }
