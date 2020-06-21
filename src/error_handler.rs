@@ -32,6 +32,12 @@ pub struct CompiletimeErrorHandler {
 }
 
 impl CompiletimeErrorHandler {
+    pub fn new() -> CompiletimeErrorHandler {
+        CompiletimeErrorHandler {
+            had_error: false,
+        }
+    }
+
     pub fn line_error(&mut self, line: usize, message: String) {
         self.had_error = true;
         self.report(line, "".to_string(), message);

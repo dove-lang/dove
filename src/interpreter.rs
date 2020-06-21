@@ -1,6 +1,7 @@
 use std::rc::Rc;
-use std::cell::RefCell;use crate::ast::*;
+use std::cell::RefCell;
 
+use crate::ast::*;
 use crate::environment::Environment;
 use crate::token::*;
 use crate::error_handler::*;
