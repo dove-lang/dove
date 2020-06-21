@@ -4,8 +4,8 @@ use crate::token::Token;
 #[derive(Debug)]
 pub enum Stmt {
     Block       (Vec<Stmt>),
-    Break,
-    Continue,
+    Break       (Token),
+    Continue    (Token),
     Class       (Token, Option<Token>, Vec<Stmt>),
     Expression  (Expr),
     For         (Token, Expr, Box<Stmt>),
