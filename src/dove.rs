@@ -3,23 +3,17 @@ use std::{ io, process };
 use std::io::{ErrorKind, Read, Write};
 
 use crate::scanner::*;
-use crate::token::*;
 use crate::interpreter::Interpreter;
-use crate::ast::Expr;
 use crate::parser::Parser;
 
 pub struct Dove {
     interpreter: Interpreter,
-    had_error: bool,
-    had_runtime_error: bool,
 }
 
 impl Dove {
     pub fn new() -> Self {
         Dove {
             interpreter: Interpreter::new(),
-            had_error: false,
-            had_runtime_error: false,
         }
     }
 
@@ -41,7 +35,7 @@ impl Dove {
         let mut content = String::new();
         match f.read_to_string(&mut content) {
             Ok(_) => {},
-            Err(e) => {
+            Err(_) => {
                 e_red_ln!("Error while reading file '{}' to string.", path);
                 process::exit(92);
             }
@@ -59,7 +53,7 @@ impl Dove {
             let _ = io::stdout().flush();
             match io::stdin().read_line(&mut input) {
                 Ok(_) => {},
-                Err(error) => {
+                Err(_) => {
                     e_red_ln!("Error while reading input to string.");
                     process::exit(92);
                 }
@@ -68,7 +62,7 @@ impl Dove {
             self = self.run(input.chars().collect());
 
             // Reset the flag; one mistake from the user shouldn't kill the entire session.
-            self.had_error = false;
+            // self.had_error = false;
         }
     }
 
@@ -80,9 +74,9 @@ impl Dove {
         let statements = parser.program().unwrap_or_default();
 
         // Stops if there is a syntax error.
-        if self.had_error {
-            return self;
-        }
+        // if self.had_error {
+        //     return self;
+        // }
 
         self.interpreter.interpret(statements);
         self

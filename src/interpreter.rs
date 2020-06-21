@@ -1,11 +1,8 @@
-use std::ops::Deref;
 use std::rc::Rc;
 use std::cell::RefCell;use crate::ast::*;
 
 use crate::environment::Environment;
 use crate::token::*;
-use crate::ast::Expr::Literal;
-use crate::dove::Dove;
 use crate::error_handler::*;
 
 pub struct Interpreter {
@@ -50,19 +47,20 @@ impl Interpreter {
             Literals::Number(_) => { match right {
                 Literals::Number(_) => Ok(()),
                 _ => {
-                    self.report_err(operator.clone(), format!("Operands of '{}' must be two numbers", operator.lexeme))
+                    self.report_err(operator.clone(), format!("Operands of '{}' must be two numbers.", operator.lexeme));
+                    Err(())
                 }
             }},
             _ => {
-                self.report_err(operator.clone(), format!("Operands of '{}' must be two numbers", operator.lexeme))
+                self.report_err(operator.clone(), format!("Operands of '{}' must be two numbers.", operator.lexeme));
+                Err(())
             }
         }
     }
 
-    fn report_err(&mut self, token: Token, message: String) -> Result<(), ()> {
+    fn report_err(&mut self, token: Token, message: String) {
         let rt_err = RuntimeError::new(token.clone(), message);
         self.error_handler.runtime_error(rt_err);
-        Err(())
     }
 }
 
@@ -80,7 +78,7 @@ impl ExprVisitor for Interpreter {
                 match res {
                     Ok(_) => Ok(val),
                     Err(_) => {
-                        self.report_err(name.clone(), format!("Cannot assign value to '{}', as it is not found in scope", name.lexeme));
+                        self.report_err(name.clone(), format!("Cannot assign value to '{}', as it is not found in scope.", name.lexeme));
                         Err(())
                     }
                 }
@@ -137,7 +135,7 @@ impl ExprVisitor for Interpreter {
                                 Literals::Number(r) => Ok(Literals::Number(l + r)),
                                 _ => {
                                     self.report_err(operator.clone(),
-                                                    format!("Operands of '{}' must be two numbers or two strings", operator.lexeme));
+                                                    format!("Operands of '{}' must be two numbers or two strings.", operator.lexeme));
                                     Err(())
                                 }
                             }},
@@ -145,13 +143,13 @@ impl ExprVisitor for Interpreter {
                                 Literals::String(r) => Ok(Literals::String(format!("{}{}", l, r))),
                                 _ => {
                                     self.report_err(operator.clone(),
-                                                    format!("Operands of '{}' must be two numbers or two strings", operator.lexeme));
+                                                    format!("Operands of '{}' must be two numbers or two strings.", operator.lexeme));
                                     Err(())
                                 }
                             }},
                             _ => {
                                 self.report_err(operator.clone(),
-                                                format!("Operands of '{}' must be two numbers or two strings", operator.lexeme));
+                                                format!("Operands of '{}' must be two numbers or two strings.", operator.lexeme));
                                 Err(())
                             },
                         }
@@ -169,7 +167,7 @@ impl ExprVisitor for Interpreter {
                                 Literals::String(r) => Ok(Literals::String(r.repeat(l as usize))),
                                 _ => {
                                     self.report_err(operator.clone(),
-                                                    format!("Operands of '{}' must be two numbers or a string and a number", operator.lexeme));
+                                                    format!("Operands of '{}' must be two numbers or a string and a number.", operator.lexeme));
                                     Err(())
                                 }
                             }},
@@ -177,13 +175,13 @@ impl ExprVisitor for Interpreter {
                                 Literals::Number(r) => Ok(Literals::String(l.repeat(r as usize))),
                                 _ => {
                                     self.report_err(operator.clone(),
-                                                    format!("Operands of '{}' must be two numbers or a string and a number", operator.lexeme));
+                                                    format!("Operands of '{}' must be two numbers or a string and a number.", operator.lexeme));
                                     Err(())
                                 }
                             }},
                             _ => {
                                 self.report_err(operator.clone(),
-                                                format!("Operands of '{}' must be two numbers or a string and a number", operator.lexeme));
+                                                format!("Operands of '{}' must be two numbers or a string and a number.", operator.lexeme));
                                 Err(())
                             }
                         }
@@ -307,11 +305,18 @@ impl StmtVisitor for Interpreter {
             // TODO: Implement visit Class statement.
             Stmt::Class(name, superclass, methods) => {},
 
-            Stmt::Expression(expression) => { self.evaluate(expression); },
+            Stmt::Expression(expression) => {
+                let res = self.evaluate(expression);
+                match res {
+                    Ok(_) => {},
+                    // TODO: Handle possible runtime error after add tokens to Stmt::Expression.
+                    Err(_) => {}
+                }
+            },
 
             // TODO: Finish visit For statement.
             Stmt::For(var_name, range_name, body) => {
-                let mut sub_env = Environment::new(Some(self.environment.clone()));
+                let sub_env = Environment::new(Some(self.environment.clone()));
 
                 match range_name.token_type {
                     TokenType::IDENTIFIER => {
