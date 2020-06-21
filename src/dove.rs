@@ -2,6 +2,8 @@ use std::fs::File;
 use std::{ io, process };
 use std::io::{ErrorKind, Read, Write};
 
+use chrono::prelude::*;
+
 use crate::scanner::*;
 use crate::interpreter::Interpreter;
 use crate::parser::Parser;
@@ -45,6 +47,11 @@ impl Dove {
     }
 
     pub fn run_prompt(mut self) {
+        // Print version & time information.
+        let date = Local::now();
+        cyan_ln!("Dove 0.0.1 (default, {})", date.format("%b %e %Y, %H:%M:%S"));
+        cyan_ln!("Visit https://github.com/dove-lang for more information.");
+
         loop {
             let mut input = String::new();
             print!(">>> ");
