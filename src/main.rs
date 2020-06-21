@@ -1,15 +1,6 @@
 use std::env;
-use std::fs::File;
-use std::io;
-use std::io::{ErrorKind, Read, Write};
 
 use dove::dove::Dove;
-
-use dove::scanner::*;
-use dove::token::*;
-use dove::interpreter::Interpreter;
-use dove::parser::Parser;
-
 
 fn main() {
     // Collect command line arguments.

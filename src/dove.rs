@@ -87,41 +87,4 @@ impl Dove {
         self.interpreter.interpret(statements);
         self
     }
-
-    //--- Error handling methods.
-    pub fn line_error(&mut self, line: usize, message: String) {
-        self.report(line, "".to_string(), message);
-    }
-
-    pub fn token_error(&mut self, token: Token, message: String) {
-        match token.token_type {
-            TokenType::EOF => self.report(token.line, " at end".to_string(), message),
-            _ => self.report(token.line, format!(" at '{}'", token.lexeme), message),
-        }
-    }
-
-    pub fn runtime_error(&mut self, error: RuntimeError) {
-        e_red_ln!("{}\n[line {}]", error.message, error.token.lexeme);
-    }
-
-    fn report(&mut self, line: usize, where_: String, message: String) {
-        e_red_ln!("[line {} ] Error{}: {}", line, where_, message);
-        self.had_error = true;
-    }
-}
-
-
-// Runtime Error struct.
-pub struct RuntimeError {
-    token: Token,
-    message: String,
-}
-
-impl RuntimeError {
-    pub fn new(token: Token, message: String) -> Self {
-        RuntimeError {
-            token,
-            message,
-        }
-    }
 }
