@@ -4,7 +4,7 @@ pub struct AstPrinter;
 
 impl AstPrinter {
     pub fn print(&mut self, expr: &Expr) -> String {
-        self.visit_expr(expr)
+        self.visit_expr(expr).unwrap()
     }
 
     fn parenthesize(&mut self, name: &String, exprs: Vec<&Expr>) -> String {
@@ -13,7 +13,7 @@ impl AstPrinter {
 
         for expr in exprs.iter() {
             res.push_str(" ");
-            res.push_str(&self.visit_expr(expr));
+            res.push_str(&self.visit_expr(expr).unwrap());
         }
         res.push_str(" )");
 
@@ -24,27 +24,27 @@ impl AstPrinter {
 impl ExprVisitor for AstPrinter {
     type Result = String;
 
-    fn visit_expr(&mut self, expr: &Expr) -> Self::Result {
+    fn visit_expr(&mut self, expr: &Expr) -> Result<Self::Result, ()> {
         match expr {
             Expr::Assign(name, value) => {
-                format!("{} = {}", name.lexeme, self.visit_expr(value))
+                Ok(format!("{} = {}", name.lexeme, self.visit_expr(value).unwrap()))
             }
             Expr::Binary(left, operator, right) => {
-                self.parenthesize(&operator.lexeme, vec![left, right])
+                Ok(self.parenthesize(&operator.lexeme, vec![left, right]))
             }
             Expr::Grouping(expression) => {
-                self.parenthesize(&"group".to_string(), vec![expression])
+                Ok(self.parenthesize(&"group".to_string(), vec![expression]))
             }
             Expr::Literal(value) => {
-                format!("{:?}", value)
+                Ok(format!("{:?}", value))
             }
             Expr::Unary(operator, right) => {
-                self.parenthesize(&operator.lexeme, vec![right])
+                Ok(self.parenthesize(&operator.lexeme, vec![right]))
             }
             Expr::Variable(name) => {
-                name.lexeme.clone()
+                Ok(name.lexeme.clone())
             }
-            _ => "not implemented (ExprVisitor for AstPrinter)".to_string()
+            _ => Ok("not implemented (ExprVisitor for AstPrinter)".to_string())
         }
     }
 }
