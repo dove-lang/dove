@@ -8,7 +8,7 @@ pub enum Stmt {
     Continue,
     Class       (Token, Option<Token>, Vec<Stmt>),
     Expression  (Expr),
-    For         (Token, Token, Box<Stmt>),
+    For         (Token, Expr, Box<Stmt>),
     Function    (Token, Vec<Token>, Box<Stmt>),
     Print       (Expr),
     Return      (Expr),

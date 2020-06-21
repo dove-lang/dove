@@ -147,9 +147,9 @@ impl Parser {
         self.consume(TokenType::FOR)?;
         let variable = self.consume(TokenType::IDENTIFIER)?;
         self.consume(TokenType::IN)?;
-        let collection = self.consume(TokenType::IDENTIFIER)?;
+        let expr = self.logic_or()?;
         let block = self.block()?;
-        Ok(Stmt::For(variable, collection, Box::new(block)))
+        Ok(Stmt::For(variable, expr, Box::new(block)))
     }
 
     fn print_stmt(&mut self) -> Result<Stmt> {
@@ -199,6 +199,7 @@ impl Parser {
             // Check whether assign to variable or set object property
             match expr {
                 Expr::Get(obj, name) => Ok(Expr::Set(obj, name, Box::new(value))),
+                Expr::IndexGet(expr, index) => Ok(Expr::IndexSet(expr, index, Box::new(value))),
                 Expr::Variable(variable) => Ok(Expr::Assign(variable, Box::new(value))),
                 _ => Err(ParseError {
                     message: format!("cannot assign to {:?}", expr),
@@ -271,7 +272,7 @@ impl Parser {
     }
 
     fn comparison(&mut self) -> Result<Expr> {
-        let mut left = self.addition()?;
+        let mut left = self.range()?;
 
         while let Some(op) = self.match_token(&[
             TokenType::LESS,
@@ -279,11 +280,22 @@ impl Parser {
             TokenType::LESS_EQUAL,
             TokenType::GREATER_EQUAL,
         ]) {
-            let right = self.addition()?;
+            let right = self.range()?;
             left = Expr::Binary(Box::new(left), op, Box::new(right));
         }
 
         Ok(left)
+    }
+
+    fn range(&mut self) -> Result<Expr> {
+        let left = self.addition()?;
+
+        if let Some(token) = self.match_token(&[TokenType::DOT_DOT, TokenType::DOT_DOT_DOT]) {
+            let right = self.addition()?;
+            Ok(Expr::Binary(Box::new(left), token, Box::new(right)))
+        } else {
+            Ok(left)
+        }
     }
 
     fn addition(&mut self) -> Result<Expr> {
@@ -335,9 +347,24 @@ impl Parser {
                 self.consume(TokenType::RIGHT_PAREN)?;
                 expr = Expr::Call(Box::new(expr), paren, args);
 
+            } else if self.consume(TokenType::LEFT_BRACKET).is_ok() {
+                let prev = self.set_ignore_newline(true);
+                let index = self.expression()?;
+                self.set_ignore_newline(prev);
+                self.consume(TokenType::RIGHT_BRACKET)?;
+                expr = Expr::IndexGet(Box::new(expr), Box::new(index));
+
             } else if self.consume(TokenType::DOT).is_ok() {
                 let name = self.consume(TokenType::IDENTIFIER)?;
                 expr = Expr::Get(Box::new(expr), name);
+
+            } else if self.check(TokenType::NEWLINE) && self.peek_next_non_newline().token_type == TokenType::DOT {
+                // Allows leading dot chain method call
+                self.skip_newlines();
+                self.consume(TokenType::DOT)?;
+                let name = self.consume(TokenType::IDENTIFIER)?;
+                expr = Expr::Get(Box::new(expr), name);
+
             } else {
                 break;
             }
@@ -438,15 +465,19 @@ impl Parser {
     fn peek_next(&self) -> &Token {
         if self.ignore_newline {
             // Need to skip past newlines if ignore newline is true
-            let mut index = self.current + 1;
-            while self.tokens[index].token_type == TokenType::NEWLINE && index < self.tokens.len() {
-                index += 1;
-            }
-
-            &self.tokens[index]
+            self.peek_next_non_newline()
         } else {
             &self.tokens[self.current + 1]
         }
+    }
+
+    fn peek_next_non_newline(&self) -> &Token {
+        let mut index = self.current + 1;
+        while self.tokens[index].token_type == TokenType::NEWLINE && index < self.tokens.len() {
+            index += 1;
+        }
+
+        &self.tokens[index]
     }
 
     fn previous(&self) -> &Token {

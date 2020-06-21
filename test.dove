@@ -1,7 +1,9 @@
-let x = 1
-let y = 10
+for i in 1..n.add_one() {
 
-while x < y {
-    print x
-    x = x + 1
 }
+
+let x = arr[one..two.func()]
+
+arr[one...hmm(1)]
+
+arr[index]

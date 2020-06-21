@@ -229,7 +229,12 @@ impl ExprVisitor for Interpreter {
             },
 
             // TODO: Implement visit Index expression.
-            Expr::Index(value, index) => {
+
+            Expr::IndexGet(value, index) => {
+                Ok(Literals::Nil)
+            }
+
+            Expr::IndexSet(expr, index, value) => {
                 Ok(Literals::Nil)
             }
 
@@ -249,11 +254,6 @@ impl ExprVisitor for Interpreter {
 
             // TODO: Implement visit Super expression.
             Expr::SuperExpr(keyword, method) => {
-                Ok(Literals::Nil)
-            }
-
-            // TODO: Implement visit Slice expression.
-            Expr::Slice(value, start, end) => {
                 Ok(Literals::Nil)
             }
 
@@ -318,11 +318,11 @@ impl StmtVisitor for Interpreter {
             Stmt::For(var_name, range_name, body) => {
                 let sub_env = Environment::new(Some(self.environment.clone()));
 
-                match range_name.token_type {
-                    TokenType::IDENTIFIER => {
-                    },
-                    _ => {}
-                }
+                // match range_name.token_type {
+                //     TokenType::IDENTIFIER => {
+                //     },
+                //     _ => {}
+                // }
             },
 
             // TODO: Implement visit Function statement.
