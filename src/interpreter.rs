@@ -5,16 +5,20 @@ use crate::ast::*;
 use crate::environment::Environment;
 use crate::token::*;
 use crate::error_handler::*;
+use crate::dove_callable::*;
 
 pub struct Interpreter {
+    pub globals: Rc<RefCell<Environment>>,
     environment: Rc<RefCell<Environment>>,
-    error_handler: RuntimeErrorHandler,
+    pub error_handler: RuntimeErrorHandler,
 }
 
 impl Interpreter {
     pub fn new() -> Interpreter {
+        let env = Rc::new(RefCell::new(Environment::new(Option::None)));
         Interpreter{
-            environment: Rc::new(RefCell::new(Environment::new(Option::None))),
+            globals: env.clone(),
+            environment: env.clone(),
             error_handler: RuntimeErrorHandler::new(),
         }
     }
@@ -29,11 +33,11 @@ impl Interpreter {
         self.visit_expr(expr)
     }
 
-    fn execute(&mut self, stmt: &Stmt) {
+    pub fn execute(&mut self, stmt: &Stmt) {
         self.visit_stmt(stmt)
     }
 
-    fn execute_block(&mut self, statements: &Vec<Stmt>, environment: Environment) {
+    pub fn execute_block(&mut self, statements: &Vec<Stmt>, environment: Environment) {
         let previous = std::mem::replace(&mut self.environment, Rc::new(RefCell::new(environment)));
 
         for stmt in statements.iter() {
@@ -200,7 +204,6 @@ impl ExprVisitor for Interpreter {
                 }
             },
 
-            // TODO: Implement visit Call expression.
             Expr::Call(callee, paren, arguments) => {
                 let callee_val = match self.evaluate(callee) {
                     Ok(v) => v,
@@ -217,22 +220,23 @@ impl ExprVisitor for Interpreter {
                     });
                 }
 
-                if argument_vals.len() != match callee_val.arity() {
-                    Ok(n) => n,
-                    Err(_) => {
+                // Try to convert the evaluated callee literal to a DoveFunction object.
+                let mut function = match callee_val.to_function_object(){
+                    Ok(f) => f,
+                    Err(()) => {
                         self.report_err(paren.clone(), format!("Type '{}' is not callable.", callee_type));
                         return Err(());
                     }
-                } {
+                };
+
+                // Check arity.
+                if argument_vals.len() != function.arity() {
                     self.report_err(paren.clone(), format!("Expected {} arguments but got {}",
-                                                           argument_vals.len(), callee_val.arity().unwrap()));
+                                                           function.arity(), argument_vals.len()));
                     return Err(());
                 }
 
-                match callee_val.call(argument_vals) {
-                    Ok(v) => Ok(v),
-                    Err(_) => Err(()),
-                }
+                Ok(function.call(self, &argument_vals))
             },
 
             // TODO: Implement visit Dictionary expression
@@ -363,8 +367,11 @@ impl StmtVisitor for Interpreter {
                 // }
             },
 
-            // TODO: Implement visit Function statement.
-            Stmt::Function(name, params, body) => {},
+            Stmt::Function(name, params, body) => {
+                // Convert DoveFunction to Function Literal.
+                let function_literal = Literals::Function(Box::new(stmt.clone() ));
+                self.environment.borrow_mut().define(name.clone(), function_literal);
+            },
 
             Stmt::Print(expression) => {
                 match self.evaluate(expression) {

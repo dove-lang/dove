@@ -1,24 +1,8 @@
-let y = {
-    z: "value",
-    x: "t".clone.zys(
-        ok,
-        {
-            cool: xd,
-            oh: "lol",
-            hmm: [1,2,3,],
-            z: (
-                1,
-                2,
-                xd
-            ),
-            "key": if x == 0 {
-                10
-            } else {
-                {
-                    x: 1,
-                    y: 2,
-                }
-            }
-        }
-    )
+fun count(n) {
+    if n > 1 {
+        count(n - 1)
+    }
+    print n
 }
+
+count(5)

@@ -1,4 +1,6 @@
 use crate::ast::Expr::Literal;
+use crate::ast::Stmt;
+use crate::dove_callable::DoveFunction;
 
 #[derive(Debug, Clone)]
 pub struct Token {
@@ -59,7 +61,7 @@ pub enum Literals {
     Number(f64),
     Boolean(bool),
     Nil,
-    Function,
+    Function(Box<Stmt>),
     Class,
 }
 
@@ -70,7 +72,7 @@ impl Literals {
             Literals::Number(_) => "Number".to_string(),
             Literals::Boolean(_) => "Boolean".to_string(),
             Literals::Nil => "Nil".to_string(),
-            Literals::Function => "Callable".to_string(),
+            Literals::Function(_) => "Function".to_string(),
             Literals::Class => "Class".to_string(),
         }
     }
@@ -95,27 +97,10 @@ impl Literals {
     }
 
     //--- Functions used only for Callables.
-    pub fn call(self, arguments: Vec<Literals>) -> Result<Literals, ()> {
+    pub fn to_function_object(self) -> Result<DoveFunction, ()> {
         match self {
-            Literals::Function => {
-                Ok(Literals::Nil)
-            },
-            Literals::Class => {
-                Ok(Literals::Nil)
-            }
-            _ => Err(())
-        }
-    }
-
-    pub fn arity(&self) -> Result<usize, ()> {
-        match self {
-            Literals::Function => {
-                Ok(3)
-            },
-            Literals::Class => {
-                Ok(3)
-            }
-            _ => Err(())
+            Literals::Function(declaration) => Ok(DoveFunction::new(*declaration)),
+            _ => { Err(()) }
         }
     }
 }
