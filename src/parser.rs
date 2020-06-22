@@ -2,6 +2,7 @@ use crate::ast::{Expr, Stmt};
 use crate::token::{Token, TokenType, Literals};
 use crate::error_handler::CompiletimeErrorHandler;
 
+#[derive(Debug)]
 enum ParseError {
     Token(Token, String),
     Line(usize, String),
@@ -70,6 +71,8 @@ impl Parser {
         }
 
         while !self.is_at_end() && self.advance().token_type != TokenType::NEWLINE {}
+
+        self.set_ignore_newline(false);
     }
 }
 
@@ -148,7 +151,26 @@ impl Parser {
 
     fn statement(&mut self) -> Result<Stmt> {
         match self.peek().token_type {
-            TokenType::LEFT_BRACE => self.block(),
+            TokenType::LEFT_BRACE => {
+                // Try to parse a dictionary. If it doesn't work, then parse block
+                let current = self.current;
+                self.consume(TokenType::LEFT_BRACE)?;
+
+                let prev = self.set_ignore_newline(true);
+                let exprs = self.key_value_pairs();
+                self.set_ignore_newline(prev);
+
+                // Check if can parse key value pairs
+                if let Ok(exprs) = exprs {
+                    if self.consume(TokenType::RIGHT_BRACE).is_ok() {
+                        return Ok(Stmt::Expression(Expr::Dictionary(exprs)));
+                    }
+                }
+
+                // Backtrack and parse a block instead
+                self.current = current;
+                self.block()
+            },
             TokenType::FOR => self.for_stmt(),
             TokenType::PRINT => self.print_stmt(),
             TokenType::RETURN => self.return_stmt(),
@@ -169,10 +191,9 @@ impl Parser {
         let mut statements = vec![];
         while !self.check(TokenType::RIGHT_BRACE) && !self.is_at_end() {
             if let Some(statement) = self.declaration() {
-                if self.consume_newline().is_ok() {
-                    statements.push(statement);
+                statements.push(statement);
 
-                } else {
+                if self.consume_newline().is_err() {
                     // No newline as separator, cannot parse more statements
                     if self.check(TokenType::RIGHT_BRACE) {
                         break;
@@ -452,15 +473,48 @@ impl Parser {
         } else if self.consume(TokenType::LEFT_PAREN).is_ok() {
             // Ignore newlines when directly within a group
             let prev = self.set_ignore_newline(true);
+
+            if self.consume(TokenType::RIGHT_PAREN).is_ok() {
+                // Empty tuple
+                return Ok(Expr::Tuple(vec![]));
+            }
+
             let expr = self.expression()?;
+
+            if self.consume(TokenType::COMMA).is_ok() {
+                // Parse tuple
+                let mut exprs = self.arguments()?;
+                exprs.insert(0, expr);
+                self.set_ignore_newline(prev);
+                self.consume(TokenType::RIGHT_PAREN)?;
+
+                Ok(Expr::Tuple(exprs))
+
+            } else {
+                // Grouped expression
+                self.set_ignore_newline(prev);
+                self.consume(TokenType::RIGHT_PAREN)?;
+
+                Ok(expr)
+            }
+
+        } else if self.consume(TokenType::LEFT_BRACKET).is_ok() {
+            // Parse array
+            let prev = self.set_ignore_newline(true);
+            let exprs = self.arguments()?;
             self.set_ignore_newline(prev);
+            self.consume(TokenType::RIGHT_BRACKET)?;
+            Ok(Expr::Array(exprs))
 
-            self.consume(TokenType::RIGHT_PAREN)?;
-
-            Ok(expr)
+        } else if self.consume(TokenType::LEFT_BRACE).is_ok() {
+            // Parse dictionary
+            let prev = self.set_ignore_newline(true);
+            let exprs = self.key_value_pairs()?;
+            self.set_ignore_newline(prev);
+            self.consume(TokenType::RIGHT_BRACE)?;
+            Ok(Expr::Dictionary(exprs))
 
         } else {
-            // TODO: add exprs like super, self, etc.
             Err(ParseError::Token(self.peek().clone(), "Unexpected token.".to_string()))
         }
     }
@@ -500,6 +554,25 @@ impl Parser {
         }
 
         Ok(arguments)
+    }
+
+    fn key_value_pairs(&mut self) -> Result<Vec<(Expr, Expr)>> {
+        let mut pairs = vec![];
+
+        loop {
+            if let Ok(key) = self.expression() {
+                self.consume(TokenType::COLON)?;
+                let value = self.expression()?;
+                pairs.push((key, value));
+
+                if self.consume(TokenType::COMMA).is_ok() {
+                    continue;
+                }
+            }
+            break;
+        }
+
+        Ok(pairs)
     }
 }
 
@@ -568,7 +641,7 @@ impl Parser {
         if self.check(token_type) {
             Ok(self.advance())
         } else {
-            Err(ParseError::Token(self.peek().clone(), format!("Expected type {:?}", token_type)))
+            Err(ParseError::Token(self.peek().clone(), format!("Unexpected token, expected type {:?}.", token_type)))
         }
     }
 
