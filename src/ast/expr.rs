@@ -3,9 +3,11 @@ use crate::ast::Stmt;
 
 #[derive(Debug)]
 pub enum Expr {
+    Array     (Vec<Expr>),
     Assign    (Token, Box<Expr>),
     Binary    (Box<Expr>, Token, Box<Expr>),
     Call      (Box<Expr>, Token, Vec<Expr>),
+    Dictionary(Vec<(Expr, Expr)>),
     Get       (Box<Expr>, Token),
     Grouping  (Box<Expr>),
     IfExpr    (Box<Expr>, Box<Stmt>, Box<Stmt>),
@@ -15,6 +17,7 @@ pub enum Expr {
     Set       (Box<Expr>, Token, Box<Expr>),
     SelfExpr  (Token),
     SuperExpr (Token, Token),
+    Tuple     (Vec<Expr>),
     Unary     (Token, Box<Expr>),
     Variable  (Token),
 }

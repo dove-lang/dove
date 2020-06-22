@@ -70,6 +70,11 @@ impl ExprVisitor for Interpreter {
 
     fn visit_expr(&mut self, expr: &Expr) -> Result<Self::Result, ()> {
         match expr {
+            // TODO: Implement visit Array expression
+            Expr::Array(expressions) => {
+                Ok(Literals::Nil)
+            }
+
             Expr::Assign(name, value) => {
                 let val = match self.evaluate(value) {
                     Ok(v) => v,
@@ -208,6 +213,11 @@ impl ExprVisitor for Interpreter {
                 Ok(Literals::Nil)
             },
 
+            // TODO: Implement visit Dictionary expression
+            Expr::Dictionary(expressions) => {
+                Ok(Literals::Nil)
+            },
+
             Expr::Grouping(expression) => {
                 self.evaluate(expression)
             },
@@ -257,6 +267,11 @@ impl ExprVisitor for Interpreter {
             Expr::SuperExpr(keyword, method) => {
                 Ok(Literals::Nil)
             }
+
+            // TODO: Implement visit Tuple expression
+            Expr::Tuple(expressions) => {
+                Ok(Literals::Nil)
+            },
 
             Expr::Unary(operator, right) => {
                 let right_val = self.evaluate(right).unwrap();
