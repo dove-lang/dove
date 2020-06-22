@@ -1,8 +1,16 @@
-fun count(n) {
-    if n > 1 {
-        count(n - 1)
-    }
+fun test_while_return(n) {
     print n
+    while n != 1 {
+        n = n - 1
+        print n
+    }
+    while n == 1 {
+        while true {
+            {
+                return -1
+            }
+        }
+    }
 }
 
-count(5)
+print test_while_return(5)
