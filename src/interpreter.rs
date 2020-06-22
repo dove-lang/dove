@@ -86,10 +86,10 @@ impl ExprVisitor for Interpreter {
 
     fn visit_expr(&mut self, expr: &Expr) -> Result<Self::Result, ()> {
         match expr {
-            // TODO: Implement visit Array expression
             Expr::Array(expressions) => {
-                Ok(Literals::Nil)
-            }
+                let vals = c![self.evaluate(expr).unwrap(), for expr in expressions];
+                Ok(Literals::Array(Box::new(vals)))
+            },
 
             Expr::Assign(name, value) => {
                 let val = match self.evaluate(value) {
@@ -471,12 +471,27 @@ fn is_equal(literal_a: &Literals, literal_b: &Literals) -> bool {
 
 fn stringify(literal: Literals) -> String {
     match literal {
-        Literals::Nil => "nil".to_string(),
-
-        // Remove the '.0' at the end of integer-valued floats.
+        Literals::Array(a) => {
+            let mut res = String::from("[");
+            let arr = *a;
+            for item in arr.iter() {
+                res.push_str(&format!("{}, ", stringify(item.clone())));
+            }
+            res.truncate(res.len() - 2);
+            res.push(']');
+            res
+        },
+        Literals::String(s) => format!("\"{}\"", s),
         Literals::Number(n) => n.to_string(),
-        Literals::String(s) => s,
         Literals::Boolean(b) => b.to_string(),
+        Literals::Nil => "nil".to_string(),
+        Literals::Function(decla) => {
+            let func_name = match *decla {
+                Stmt::Function(name_token, _, _) => name_token.lexeme,
+                _ => { panic!("Magically found non-function decalation wrapped inside Literals::Function."); }
+            };
+            format!("<fun {}>", func_name)
+        }
         _ => panic!("Not implemented.")
     }
 }

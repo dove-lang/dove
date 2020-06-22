@@ -1,6 +1,7 @@
 #[macro_use(cyan_ln, e_red_ln)]
 extern crate colour;
-
+#[macro_use(c)]
+extern crate cute;
 extern crate chrono;
 
 pub mod dove;

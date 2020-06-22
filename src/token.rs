@@ -57,6 +57,7 @@ pub enum TokenType {
 
 #[derive(Debug, Clone)]
 pub enum Literals {
+    Array(Box<Vec<Literals>>),
     String(String),
     Number(f64),
     Boolean(bool),
@@ -68,9 +69,10 @@ pub enum Literals {
 impl Literals {
     pub fn to_string(&self) -> String {
         match self {
-            Literals::String(_) => "String".to_string(),
-            Literals::Number(_) => "Number".to_string(),
-            Literals::Boolean(_) => "Boolean".to_string(),
+            Literals::Array(a) => format!("{:?}", *a.clone()),
+            Literals::String(s) => format!("\"{}\"", s),
+            Literals::Number(n) => format!("{}", n),
+            Literals::Boolean(b) => b.to_string(),
             Literals::Nil => "Nil".to_string(),
             Literals::Function(_) => "Function".to_string(),
             Literals::Class => "Class".to_string(),
