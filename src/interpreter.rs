@@ -403,7 +403,10 @@ impl StmtVisitor for Interpreter {
 
             // TODO: Implement visit Return statement.
             Stmt::Return(expression) => {
-                let value = self.evaluate(expression).unwrap();
+                let value = match expression {
+                    Some(expression) => self.evaluate(expression).unwrap(),
+                    None => Literals::Nil,
+                };
                 Err(value)
             },
 
