@@ -6,6 +6,7 @@ use crate::environment::Environment;
 use crate::token::*;
 use crate::error_handler::*;
 use crate::dove_callable::*;
+use crate::ast::Expr::Literal;
 
 pub struct Interpreter {
     pub globals: Rc<RefCell<Environment>>,
@@ -25,7 +26,11 @@ impl Interpreter {
 
     pub fn interpret(&mut self, stmts: Vec<Stmt>) {
         for stmt in stmts.iter() {
-            self.execute(stmt)
+            // As this function should only be used by Dove struct,
+            // no return value should be expected.
+            self.execute(stmt).unwrap_or_else(|return_val| {
+                e_red_ln!("Unexpected return value: {}", return_val.to_string());
+            });
         }
     }
 
@@ -33,18 +38,25 @@ impl Interpreter {
         self.visit_expr(expr)
     }
 
-    pub fn execute(&mut self, stmt: &Stmt) {
+    pub fn execute(&mut self, stmt: &Stmt) -> Result<(), Literals> {
         self.visit_stmt(stmt)
     }
 
-    pub fn execute_block(&mut self, statements: &Vec<Stmt>, environment: Environment) {
+    pub fn execute_block(&mut self, statements: &Vec<Stmt>, environment: Environment) -> Result<(), Literals> {
         let previous = std::mem::replace(&mut self.environment, Rc::new(RefCell::new(environment)));
 
         for stmt in statements.iter() {
-            self.execute(stmt);
+            match self.execute(stmt) {
+                Ok(_) => {},
+                Err(return_val) => {
+                    self.environment = previous;
+                    return Err(return_val);
+                }
+            }
         }
 
         self.environment = previous;
+        Ok(())
     }
 
     fn check_number_operand(&mut self, operator: &Token, left: &Literals, right: &Literals) -> Result<(), ()> {
@@ -256,9 +268,9 @@ impl ExprVisitor for Interpreter {
             Expr::IfExpr(condition, then_branch, else_branch) => {
                 let condition_val = is_truthy(&self.evaluate(condition).unwrap());
                 if condition_val {
-                    self.execute(then_branch)
+                    self.execute(then_branch);
                 } else {
-                    self.execute(else_branch)
+                    self.execute(else_branch);
                 }
 
                 // temp code
@@ -334,25 +346,29 @@ impl ExprVisitor for Interpreter {
 
 
 impl StmtVisitor for Interpreter {
-    fn visit_stmt(&mut self, stmt: &Stmt) {
+    type Result = Literals;
+
+    fn visit_stmt(&mut self, stmt: &Stmt) -> Result<(), Self::Result> {
         match stmt {
-            Stmt::Block(statements) => self.execute_block(statements, Environment::new(Some(self.environment.clone()))),
+            Stmt::Block(statements) => {
+                self.execute_block(statements, Environment::new(Some(self.environment.clone())))
+            },
 
             // TODO: Implement visit Break statement.
-            Stmt::Break(_) => {},
+            Stmt::Break(_) => {Ok(())},
 
             // TODO: Implement visit Continue statement.
-            Stmt::Continue(_) => {},
+            Stmt::Continue(_) => {Ok(())},
 
             // TODO: Implement visit Class statement.
-            Stmt::Class(name, superclass, methods) => {},
+            Stmt::Class(name, superclass, methods) => {Ok(())},
 
             Stmt::Expression(expression) => {
                 let res = self.evaluate(expression);
                 match res {
-                    Ok(_) => {},
+                    Ok(_) => { Ok(()) },
                     // TODO: Handle possible runtime error after add tokens to Stmt::Expression.
-                    Err(_) => {}
+                    Err(_) => { Ok(()) }
                 }
             },
 
@@ -365,23 +381,31 @@ impl StmtVisitor for Interpreter {
                 //     },
                 //     _ => {}
                 // }
+                Ok(())
             },
 
             Stmt::Function(name, params, body) => {
                 // Convert DoveFunction to Function Literal.
                 let function_literal = Literals::Function(Box::new(stmt.clone() ));
                 self.environment.borrow_mut().define(name.clone(), function_literal);
+                Ok(())
             },
 
             Stmt::Print(expression) => {
                 match self.evaluate(expression) {
-                    Ok(literal) => println!("{}", stringify(literal)),
-                    Err(_) => {}
+                    Ok(literal) => {
+                        println!("{}", stringify(literal));
+                        Ok(())
+                    },
+                    Err(_) => { Ok(()) }
                 }
             },
 
             // TODO: Implement visit Return statement.
-            Stmt::Return(expression) => {},
+            Stmt::Return(expression) => {
+                let value = self.evaluate(expression).unwrap();
+                Err(value)
+            },
 
             Stmt::Variable(name, initializer) => {
                 let val = match initializer {
@@ -391,13 +415,20 @@ impl StmtVisitor for Interpreter {
                     },
                     None => Literals::Nil,
                 };
-                self.environment.borrow_mut().define(name.clone(), val)
+                self.environment.borrow_mut().define(name.clone(), val);
+                Ok(())
             },
 
             Stmt::While(condition, body) => {
                 while is_truthy(&self.evaluate(condition).unwrap()) {
-                    self.execute(body)
+                     match self.execute(body) {
+                         Ok(_) => {},
+                         Err(return_val) => {
+                             return Err(return_val);
+                         }
+                     }
                 }
+                Ok(())
             }
         }
     }

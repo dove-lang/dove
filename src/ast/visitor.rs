@@ -7,5 +7,7 @@ pub trait ExprVisitor {
 }
 
 pub trait StmtVisitor {
-    fn visit_stmt(&mut self, stmt: &Stmt);
+    type Result;
+
+    fn visit_stmt(&mut self, stmt: &Stmt) -> Result<(), Self::Result>;
 }
