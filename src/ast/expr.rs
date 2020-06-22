@@ -1,7 +1,7 @@
 use crate::token::{Token, Literals};
 use crate::ast::Stmt;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Expr {
     Array     (Vec<Expr>),
     Assign    (Token, Box<Expr>),

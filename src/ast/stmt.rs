@@ -1,7 +1,7 @@
 use crate::ast::Expr;
 use crate::token::Token;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Stmt {
     Block       (Vec<Stmt>),
     Break       (Token),

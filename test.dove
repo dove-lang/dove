@@ -1,36 +1,8 @@
-syntax.good()
-
-syntaxerr(
-    still.good,
-    {
-        kk oh oops!!! (
-            ok skip this {}
-        )
-        skip this too cos not statement
+fun count(n) {
+    if n > 1 {
+        count(n - 1)
     }
-    lmao still skip
-)
-
-ok.good()
-
-if something {
-    ok
-    ok().ok
-    if condition {
-        statement
-        hmm({
-            wrong shit oops! (
-                lmao (
-                    xdxddd
-                    adfsdfadsf asdfa asdf
-                )
-            )
-            skip retard
-        })
-        ok error here
-    } else {
-        xd
-    }
+    print n
 }
 
-good
+count(5)

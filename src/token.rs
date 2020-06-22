@@ -1,3 +1,7 @@
+use crate::ast::Expr::Literal;
+use crate::ast::Stmt;
+use crate::dove_callable::DoveFunction;
+
 #[derive(Debug, Clone)]
 pub struct Token {
     pub token_type: TokenType,
@@ -57,9 +61,22 @@ pub enum Literals {
     Number(f64),
     Boolean(bool),
     Nil,
+    Function(Box<Stmt>),
+    Class,
 }
 
 impl Literals {
+    pub fn to_string(&self) -> String {
+        match self {
+            Literals::String(_) => "String".to_string(),
+            Literals::Number(_) => "Number".to_string(),
+            Literals::Boolean(_) => "Boolean".to_string(),
+            Literals::Nil => "Nil".to_string(),
+            Literals::Function(_) => "Function".to_string(),
+            Literals::Class => "Class".to_string(),
+        }
+    }
+
     pub fn unwrap_string(self) -> String {
         match self {
             Literals::String(s) => s,
@@ -76,6 +93,14 @@ impl Literals {
         match self {
             Literals::Boolean(b) => b,
             _ => panic!("Cannot unwrap this literal to Boolean.")
+        }
+    }
+
+    //--- Functions used only for Callables.
+    pub fn to_function_object(self) -> Result<DoveFunction, ()> {
+        match self {
+            Literals::Function(declaration) => Ok(DoveFunction::new(*declaration)),
+            _ => { Err(()) }
         }
     }
 }

@@ -5,16 +5,20 @@ use crate::ast::*;
 use crate::environment::Environment;
 use crate::token::*;
 use crate::error_handler::*;
+use crate::dove_callable::*;
 
 pub struct Interpreter {
+    pub globals: Rc<RefCell<Environment>>,
     environment: Rc<RefCell<Environment>>,
-    error_handler: RuntimeErrorHandler,
+    pub error_handler: RuntimeErrorHandler,
 }
 
 impl Interpreter {
     pub fn new() -> Interpreter {
+        let env = Rc::new(RefCell::new(Environment::new(Option::None)));
         Interpreter{
-            environment: Rc::new(RefCell::new(Environment::new(Option::None))),
+            globals: env.clone(),
+            environment: env.clone(),
             error_handler: RuntimeErrorHandler::new(),
         }
     }
@@ -29,11 +33,11 @@ impl Interpreter {
         self.visit_expr(expr)
     }
 
-    fn execute(&mut self, stmt: &Stmt) {
+    pub fn execute(&mut self, stmt: &Stmt) {
         self.visit_stmt(stmt)
     }
 
-    fn execute_block(&mut self, statements: &Vec<Stmt>, environment: Environment) {
+    pub fn execute_block(&mut self, statements: &Vec<Stmt>, environment: Environment) {
         let previous = std::mem::replace(&mut self.environment, Rc::new(RefCell::new(environment)));
 
         for stmt in statements.iter() {
@@ -200,17 +204,39 @@ impl ExprVisitor for Interpreter {
                 }
             },
 
-            // TODO: Implement visit Call expression.
             Expr::Call(callee, paren, arguments) => {
-                let callee_val = self.evaluate(callee);
+                let callee_val = match self.evaluate(callee) {
+                    Ok(v) => v,
+                    Err(_) => { return Err(()); }
+                };
+                let callee_type = (&callee_val).to_string();
 
+                // Evaluate argument literals.
                 let mut argument_vals = Vec::new();
                 for argument in arguments.iter() {
-                    argument_vals.push(self.evaluate(argument));
+                    argument_vals.push(match self.evaluate(argument) {
+                        Ok(v) => v,
+                        Err(_) => { return Err(()); }
+                    });
                 }
 
-                // temp code
-                Ok(Literals::Nil)
+                // Try to convert the evaluated callee literal to a DoveFunction object.
+                let mut function = match callee_val.to_function_object(){
+                    Ok(f) => f,
+                    Err(()) => {
+                        self.report_err(paren.clone(), format!("Type '{}' is not callable.", callee_type));
+                        return Err(());
+                    }
+                };
+
+                // Check arity.
+                if argument_vals.len() != function.arity() {
+                    self.report_err(paren.clone(), format!("Expected {} arguments but got {}",
+                                                           function.arity(), argument_vals.len()));
+                    return Err(());
+                }
+
+                Ok(function.call(self, &argument_vals))
             },
 
             // TODO: Implement visit Dictionary expression
@@ -341,8 +367,11 @@ impl StmtVisitor for Interpreter {
                 // }
             },
 
-            // TODO: Implement visit Function statement.
-            Stmt::Function(name, params, body) => {},
+            Stmt::Function(name, params, body) => {
+                // Convert DoveFunction to Function Literal.
+                let function_literal = Literals::Function(Box::new(stmt.clone() ));
+                self.environment.borrow_mut().define(name.clone(), function_literal);
+            },
 
             Stmt::Print(expression) => {
                 match self.evaluate(expression) {
@@ -402,6 +431,7 @@ fn is_equal(literal_a: &Literals, literal_b: &Literals) -> bool {
             Literals::Nil => true,
             _ => false,
         }},
+        _ => panic!("Not implemented.")
     }
 }
 
@@ -413,5 +443,6 @@ fn stringify(literal: Literals) -> String {
         Literals::Number(n) => n.to_string(),
         Literals::String(s) => s,
         Literals::Boolean(b) => b.to_string(),
+        _ => panic!("Not implemented.")
     }
 }
