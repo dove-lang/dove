@@ -1,12 +1,12 @@
 use std::rc::Rc;
 use std::cell::RefCell;
+use std::collections::HashMap;
 
 use crate::ast::*;
-use crate::environment::Environment;
 use crate::token::*;
 use crate::error_handler::*;
 use crate::dove_callable::*;
-use crate::ast::Expr::Literal;
+use crate::environment::Environment;
 
 pub struct Interpreter {
     pub globals: Rc<RefCell<Environment>>,
@@ -87,8 +87,14 @@ impl ExprVisitor for Interpreter {
     fn visit_expr(&mut self, expr: &Expr) -> Result<Self::Result, ()> {
         match expr {
             Expr::Array(expressions) => {
-                let vals = c![self.evaluate(expr).unwrap(), for expr in expressions];
-                Ok(Literals::Array(Box::new(vals)))
+                let mut arr_vals = Vec::new();
+                for expr in expressions {
+                    arr_vals.push(match self.evaluate(expr) {
+                        Ok(v) => v,
+                        Err(_) => { break; }
+                    });
+                }
+                Ok(Literals::Array(Box::new(arr_vals)))
             },
 
             Expr::Assign(name, value) => {
@@ -251,9 +257,32 @@ impl ExprVisitor for Interpreter {
                 Ok(function.call(self, &argument_vals))
             },
 
-            // TODO: Implement visit Dictionary expression
             Expr::Dictionary(expressions) => {
-                Ok(Literals::Nil)
+                let mut dict_val = HashMap::new();
+                for (key_expr, val_expr) in expressions.iter() {
+                    let key = self.evaluate(key_expr).unwrap();
+                    let val = self.evaluate(val_expr).unwrap();
+
+                    // Check if key expr evaluates to String or Number.
+                    match key {
+                        Literals::String(key) => {
+                            dict_val.insert(DictKey::StringKey(key), val);
+                        },
+                        Literals::Number(key) =>{
+                            // Check if integer.
+                            if key.fract() != 0.0 {
+                                e_red_ln!("Only String and Integer can be used as dictionary key.");
+                                return Err(());
+                            }
+                            dict_val.insert(DictKey::NumberKey(key as usize), val);
+                        },
+                        _ => {
+                            e_red_ln!("Only String and Integer can be used as dictionary key.");
+                            return Err(());
+                        }
+                    };
+                }
+                Ok(Literals::Dictionary(Box::new(dict_val)))
             },
 
             Expr::Grouping(expression) => {
@@ -481,6 +510,15 @@ fn stringify(literal: Literals) -> String {
             res.push(']');
             res
         },
+        Literals::Dictionary(h) => {
+            let mut res = String::from("{");
+            for (key, val) in *h {
+                res.push_str(&format!("{}: {}, ", key.stringify(), stringify(val)));
+            }
+            res.truncate(res.len() - 2);
+            res.push('}');
+            res
+        }
         Literals::String(s) => format!("\"{}\"", s),
         Literals::Number(n) => n.to_string(),
         Literals::Boolean(b) => b.to_string(),

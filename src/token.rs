@@ -1,6 +1,6 @@
-use crate::ast::Expr::Literal;
 use crate::ast::Stmt;
 use crate::dove_callable::DoveFunction;
+use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 pub struct Token {
@@ -58,6 +58,7 @@ pub enum TokenType {
 #[derive(Debug, Clone)]
 pub enum Literals {
     Array(Box<Vec<Literals>>),
+    Dictionary(Box<HashMap<DictKey, Literals>>),
     String(String),
     Number(f64),
     Boolean(bool),
@@ -69,10 +70,11 @@ pub enum Literals {
 impl Literals {
     pub fn to_string(&self) -> String {
         match self {
-            Literals::Array(a) => format!("{:?}", *a.clone()),
-            Literals::String(s) => format!("\"{}\"", s),
-            Literals::Number(n) => format!("{}", n),
-            Literals::Boolean(b) => b.to_string(),
+            Literals::Array(_) => "Array".to_string(),
+            Literals::Dictionary(_) => "Dictionary".to_string(),
+            Literals::String(_) => "String".to_string(),
+            Literals::Number(_) => "Number".to_string(),
+            Literals::Boolean(_) => "Boolean".to_string(),
             Literals::Nil => "Nil".to_string(),
             Literals::Function(_) => "Function".to_string(),
             Literals::Class => "Class".to_string(),
@@ -106,3 +108,35 @@ impl Literals {
         }
     }
 }
+
+#[derive(Debug, Clone, Hash)]
+pub enum DictKey {
+    StringKey(String),
+    NumberKey(usize),
+}
+
+impl DictKey {
+    pub fn stringify(&self) -> String {
+        match self {
+            DictKey::StringKey(s) => format!("\"{}\"", s),
+            DictKey::NumberKey(n) => n.to_string(),
+        }
+    }
+}
+
+impl PartialEq for DictKey {
+    fn eq(&self, other: &Self) -> bool {
+        match self {
+            DictKey::StringKey(s) => match other {
+                DictKey::StringKey(other_s) => s == other_s,
+                DictKey::NumberKey(_) => false,
+            },
+            DictKey::NumberKey(n) => match other {
+                DictKey::StringKey(_) => false,
+                DictKey::NumberKey(other_n) => n == other_n,
+            }
+        }
+    }
+}
+
+impl Eq for DictKey {}
