@@ -11,7 +11,7 @@ pub enum Stmt {
     For         (Token, Expr, Box<Stmt>),
     Function    (Token, Vec<Token>, Box<Stmt>),
     Print       (Expr),
-    Return      (Expr),
+    Return      (Option<Expr>),
     Variable    (Token, Option<Expr>),
     While       (Expr, Box<Stmt>),
 }

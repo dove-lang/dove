@@ -242,8 +242,13 @@ impl Parser {
 
     fn return_stmt(&mut self) -> Result<Stmt> {
         self.consume(TokenType::RETURN)?;
-        let expr = self.expression()?;
-        Ok(Stmt::Return(expr))
+
+        if self.check(TokenType::NEWLINE) || self.check(TokenType::RIGHT_BRACE) {
+            Ok(Stmt::Return(None))
+        } else {
+            let expr = self.expression()?;
+            Ok(Stmt::Return(Some(expr)))
+        }
     }
 
     fn while_stmt(&mut self) -> Result<Stmt> {
