@@ -39,7 +39,12 @@ impl DoveCallable for DoveFunction {
                 for i in 0..params.len() {
                     environment.define(params[i].clone(), argument_vals[i].clone());
                 }
-                interpreter.execute_block(&vec![*body.clone()], environment);
+                match interpreter.execute_block(&vec![*body.clone()], environment) {
+                    Ok(_) => {},
+                    Err(return_val) => {
+                        return return_val;
+                    }
+                }
 
                 Literals::Nil
             },
