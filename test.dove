@@ -1,24 +1,36 @@
-let y = {
-    z: "value",
-    x: "t".clone.zys(
-        ok,
-        {
-            cool: xd,
-            oh: "lol",
-            hmm: [1,2,3,],
-            z: (
-                1,
-                2,
-                xd
-            ),
-            "key": if x == 0 {
-                10
-            } else {
-                {
-                    x: 1,
-                    y: 2,
-                }
-            }
-        }
-    )
+syntax.good()
+
+syntaxerr(
+    still.good,
+    {
+        kk oh oops!!! (
+            ok skip this {}
+        )
+        skip this too cos not statement
+    }
+    lmao still skip
+)
+
+ok.good()
+
+if something {
+    ok
+    ok().ok
+    if condition {
+        statement
+        hmm({
+            wrong shit oops! (
+                lmao (
+                    xdxddd
+                    adfsdfadsf asdfa asdf
+                )
+            )
+            skip retard
+        })
+        ok error here
+    } else {
+        xd
+    }
 }
+
+good

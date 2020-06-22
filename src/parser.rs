@@ -18,6 +18,13 @@ pub struct Parser {
     ignore_newline: bool,
 
     error_handler: CompiletimeErrorHandler,
+
+    /// Indicates how "deep" the parser currently is nested in (), [], and {}.
+    /// Automatically updates when `Parser.advance` is called.
+    /// Used in `Parser.sychronize` to determine when to stop synchronizing.
+    nested_level: u32,
+    /// The nested level of the parsing statement
+    statement_nested_level: u32,
 }
 
 impl Parser {
@@ -29,11 +36,15 @@ impl Parser {
             error_handler: CompiletimeErrorHandler {
                 had_error: false,
             },
+            nested_level: 0,
+            statement_nested_level: 0,
         }
     }
 
     pub fn program(&mut self) -> Vec<Stmt> {
         let mut statements = vec![];
+
+        self.skip_newlines();
 
         while !self.is_at_end() {
             if let Some(statement) = self.declaration() {
@@ -63,14 +74,14 @@ impl Parser {
         self.handle_error(ParseError::Token(self.peek().clone(), "Expected newline after statement.".to_string()));
     }
 
-    /// Synchronize an error, skip tokens until end of current statement
+    /// Synchronize an error, skip tokens until end of current statement and same nested level as statement.
     fn synchronize(&mut self) {
-        // TODO: find better synchronization point
-        if self.ignore_newline {
-            // Currently inside (), [], or {}.
+        while !self.is_at_end() {
+            let token = self.advance();
+            if self.nested_level <= self.statement_nested_level && token.token_type == TokenType::NEWLINE {
+                break;
+            }
         }
-
-        while !self.is_at_end() && self.advance().token_type != TokenType::NEWLINE {}
 
         self.set_ignore_newline(false);
     }
@@ -80,6 +91,8 @@ impl Parser {
 impl Parser {
     fn declaration(&mut self) -> Option<Stmt> {
         self.skip_newlines();
+
+        self.statement_nested_level = self.nested_level;
 
         let declaration = match self.peek().token_type {
             TokenType::CLASS => self.class_decl(),
@@ -154,6 +167,7 @@ impl Parser {
             TokenType::LEFT_BRACE => {
                 // Try to parse a dictionary. If it doesn't work, then parse block
                 let current = self.current;
+                let nested_level = self.nested_level;
                 self.consume(TokenType::LEFT_BRACE)?;
 
                 let prev = self.set_ignore_newline(true);
@@ -169,6 +183,7 @@ impl Parser {
 
                 // Backtrack and parse a block instead
                 self.current = current;
+                self.nested_level = nested_level;
                 self.block()
             },
             TokenType::FOR => self.for_stmt(),
@@ -621,6 +636,12 @@ impl Parser {
             if self.ignore_newline {
                 self.skip_newlines();
             }
+        }
+
+        match token.token_type {
+            TokenType::LEFT_PAREN | TokenType::LEFT_BRACKET | TokenType::LEFT_BRACE => self.nested_level += 1,
+            TokenType::RIGHT_PAREN | TokenType::RIGHT_BRACKET | TokenType::RIGHT_BRACE => self.nested_level -= 1,
+            _ => (),
         }
 
         token
