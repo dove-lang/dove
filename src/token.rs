@@ -1,3 +1,5 @@
+use crate::ast::Expr::Literal;
+
 #[derive(Debug, Clone)]
 pub struct Token {
     pub token_type: TokenType,
@@ -57,9 +59,22 @@ pub enum Literals {
     Number(f64),
     Boolean(bool),
     Nil,
+    Function,
+    Class,
 }
 
 impl Literals {
+    pub fn to_string(&self) -> String {
+        match self {
+            Literals::String(_) => "String".to_string(),
+            Literals::Number(_) => "Number".to_string(),
+            Literals::Boolean(_) => "Boolean".to_string(),
+            Literals::Nil => "Nil".to_string(),
+            Literals::Function => "Callable".to_string(),
+            Literals::Class => "Class".to_string(),
+        }
+    }
+
     pub fn unwrap_string(self) -> String {
         match self {
             Literals::String(s) => s,
@@ -76,6 +91,31 @@ impl Literals {
         match self {
             Literals::Boolean(b) => b,
             _ => panic!("Cannot unwrap this literal to Boolean.")
+        }
+    }
+
+    //--- Functions used only for Callables.
+    pub fn call(self, arguments: Vec<Literals>) -> Result<Literals, ()> {
+        match self {
+            Literals::Function => {
+                Ok(Literals::Nil)
+            },
+            Literals::Class => {
+                Ok(Literals::Nil)
+            }
+            _ => Err(())
+        }
+    }
+
+    pub fn arity(&self) -> Result<usize, ()> {
+        match self {
+            Literals::Function => {
+                Ok(3)
+            },
+            Literals::Class => {
+                Ok(3)
+            }
+            _ => Err(())
         }
     }
 }

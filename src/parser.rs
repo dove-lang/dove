@@ -172,8 +172,8 @@ impl Parser {
     }
 
     fn break_stmt(&mut self) -> Result<Stmt> {
-        self.consume(TokenType::BREAK)?;
-        Ok(Stmt::Break)
+        let token = self.consume(TokenType::BREAK)?;
+        Ok(Stmt::Break(token))
     }
 
     fn expr_stmt(&mut self) -> Result<Stmt> {

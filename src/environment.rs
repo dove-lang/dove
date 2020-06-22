@@ -8,12 +8,12 @@ use crate::token::Token;
 #[derive(Clone)]
 pub struct Environment {
     enclosing: Option<Rc<RefCell<Environment>>>,
-    pub values: HashMap<String, Literals>,
-    loop_status: LoopStatus,
+    values: HashMap<String, Literals>,
+    pub loop_status: LoopStatus,
 }
 
 #[derive(Clone)]
-enum LoopStatus {
+pub enum LoopStatus {
     NotLooping,
     Looping,
     Breaking,

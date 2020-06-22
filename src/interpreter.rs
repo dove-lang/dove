@@ -197,15 +197,37 @@ impl ExprVisitor for Interpreter {
 
             // TODO: Implement visit Call expression.
             Expr::Call(callee, paren, arguments) => {
-                let callee_val = self.evaluate(callee);
+                let callee_val = match self.evaluate(callee) {
+                    Ok(v) => v,
+                    Err(_) => { return Err(()); }
+                };
+                let callee_type = (&callee_val).to_string();
 
+                // Evaluate argument literals.
                 let mut argument_vals = Vec::new();
                 for argument in arguments.iter() {
-                    argument_vals.push(self.evaluate(argument));
+                    argument_vals.push(match self.evaluate(argument) {
+                        Ok(v) => v,
+                        Err(_) => { return Err(()); }
+                    });
                 }
 
-                // temp code
-                Ok(Literals::Nil)
+                if argument_vals.len() != match callee_val.arity() {
+                    Ok(n) => n,
+                    Err(_) => {
+                        self.report_err(paren.clone(), format!("Type '{}' is not callable.", callee_type));
+                        return Err(());
+                    }
+                } {
+                    self.report_err(paren.clone(), format!("Expected {} arguments but got {}",
+                                                           argument_vals.len(), callee_val.arity().unwrap()));
+                    return Err(());
+                }
+
+                match callee_val.call(argument_vals) {
+                    Ok(v) => Ok(v),
+                    Err(_) => Err(()),
+                }
             },
 
             Expr::Grouping(expression) => {
@@ -298,10 +320,10 @@ impl StmtVisitor for Interpreter {
             Stmt::Block(statements) => self.execute_block(statements, Environment::new(Some(self.environment.clone()))),
 
             // TODO: Implement visit Break statement.
-            Stmt::Break => {},
+            Stmt::Break(_) => {},
 
             // TODO: Implement visit Continue statement.
-            Stmt::Continue => {},
+            Stmt::Continue(_) => {},
 
             // TODO: Implement visit Class statement.
             Stmt::Class(name, superclass, methods) => {},
@@ -387,6 +409,7 @@ fn is_equal(literal_a: &Literals, literal_b: &Literals) -> bool {
             Literals::Nil => true,
             _ => false,
         }},
+        _ => panic!("Not implemented.")
     }
 }
 
@@ -398,5 +421,6 @@ fn stringify(literal: Literals) -> String {
         Literals::Number(n) => n.to_string(),
         Literals::String(s) => s,
         Literals::Boolean(b) => b.to_string(),
+        _ => panic!("Not implemented.")
     }
 }
