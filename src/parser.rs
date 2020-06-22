@@ -610,15 +610,6 @@ impl Parser {
         &self.tokens[self.current]
     }
 
-    fn peek_next(&self) -> &Token {
-        if self.ignore_newline {
-            // Need to skip past newlines if ignore newline is true
-            self.peek_next_non_newline()
-        } else {
-            &self.tokens[self.current + 1]
-        }
-    }
-
     fn peek_next_non_newline(&self) -> &Token {
         let mut index = self.current + 1;
         while self.tokens[index].token_type == TokenType::NEWLINE && index < self.tokens.len() {
@@ -626,10 +617,6 @@ impl Parser {
         }
 
         &self.tokens[index]
-    }
-
-    fn previous(&self) -> &Token {
-        &self.tokens[self.current - 1]
     }
 
     fn advance(&mut self) -> Token {
