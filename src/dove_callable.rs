@@ -40,7 +40,13 @@ impl DoveCallable for DoveFunction {
                 for i in 0..params.len() {
                     environment.define(params[i].clone(), argument_vals[i].clone());
                 }
-                match interpreter.execute_block(&vec![*body.clone()], environment) {
+
+                let statements = match body.as_ref() {
+                    Stmt::Block(statements) => statements,
+                    _ => panic!("Function have non-block body"),
+                };
+
+                match interpreter.execute_block(statements, environment) {
                     Ok(_) => {},
                     Err(return_val) => {
                         return return_val;

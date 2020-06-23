@@ -63,7 +63,6 @@ impl Interpreter {
     }
 
     pub fn resolve(&mut self, token: &Token, depth: usize) {
-        println!("{:?}, depth {}", token, depth);
         self.insert_local(token, depth);
     }
 

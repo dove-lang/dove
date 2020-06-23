@@ -9,7 +9,7 @@ use crate::token::Token;
 #[derive(Clone)]
 pub struct Environment {
     enclosing: Option<Rc<RefCell<Environment>>>,
-    pub values: HashMap<String, Literals>,
+    values: HashMap<String, Literals>,
     pub loop_status: LoopStatus,
 }
 
@@ -63,13 +63,33 @@ impl Environment {
         } else {
             match &self.enclosing {
                 Some(enclosing) => enclosing.borrow_mut().assign_at(distance - 1, name, value),
-                None => Err(())
+                None => Err(()),
             }
         }
     }
 
     pub fn define(&mut self, name: Token, value: Literals) {
         self.values.insert(name.lexeme, value);
+    }
+}
+
+// Scope debugging functions
+impl Environment {
+    pub fn hierarchy(&self, count: usize) -> String {
+        let string = format!("{}{}", " ".repeat(4 * count), self.vars());
+        match &self.enclosing {
+            Some(encl) => format!("{}\n{}", string, encl.borrow().hierarchy(count + 1)),
+            None => string,
+        }
+    }
+
+    fn vars(&self) -> String {
+        let mut string = "{ ".to_string();
+        for (key, _) in self.values.iter() {
+            string.push_str(&format!("{}, ", key));
+        }
+        string.push_str(" }");
+        string
     }
 }
 

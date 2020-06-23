@@ -10,3 +10,23 @@ fun make_counter() {
 let counter = make_counter()
 print counter()
 print counter()
+
+let x = "global"
+
+{
+    fun print_x() {
+        print x
+
+        {
+            {
+                print x
+            }
+        }
+    }
+
+    print_x()
+    x = "still global"
+    print_x()
+    let x = "local"
+    print_x()
+}
