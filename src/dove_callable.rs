@@ -1,6 +1,3 @@
-use std::rc::Rc;
-use std::cell::RefCell;
-
 use crate::interpreter::Interpreter;
 use crate::environment::Environment;
 use crate::token::Literals;
@@ -24,7 +21,7 @@ impl DoveFunction {
 
     pub fn arity(&self) -> usize {
         match &self.declaration {
-            Stmt::Function(name_, params, body_) => params.len(),
+            Stmt::Function(_, params, _) => params.len(),
             _ => { panic!("Cannot check arity. "); }
         }
     }
@@ -35,7 +32,7 @@ impl DoveCallable for DoveFunction {
         let mut environment = Environment::new(Some(interpreter.globals.clone()));
 
         match &self.declaration {
-            Stmt::Function(name, params, body) => {
+            Stmt::Function(_, params, body) => {
                 for i in 0..params.len() {
                     environment.define(params[i].clone(), argument_vals[i].clone());
                 }

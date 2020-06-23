@@ -1,6 +1,5 @@
 #[macro_use(cyan_ln, e_red_ln)]
 extern crate colour;
-
 extern crate chrono;
 
 pub mod dove;

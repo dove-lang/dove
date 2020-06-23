@@ -1,12 +1,12 @@
 use std::rc::Rc;
 use std::cell::RefCell;
+use std::collections::HashMap;
 
 use crate::ast::*;
-use crate::environment::Environment;
 use crate::token::*;
 use crate::error_handler::*;
 use crate::dove_callable::*;
-use crate::ast::Expr::Literal;
+use crate::environment::Environment;
 
 pub struct Interpreter {
     pub globals: Rc<RefCell<Environment>>,
@@ -86,10 +86,16 @@ impl ExprVisitor for Interpreter {
 
     fn visit_expr(&mut self, expr: &Expr) -> Result<Self::Result, ()> {
         match expr {
-            // TODO: Implement visit Array expression
             Expr::Array(expressions) => {
-                Ok(Literals::Nil)
-            }
+                let mut arr_vals = Vec::new();
+                for expr in expressions {
+                    arr_vals.push(match self.evaluate(expr) {
+                        Ok(v) => v,
+                        Err(_) => { break; }
+                    });
+                }
+                Ok(Literals::Array(Box::new(arr_vals)))
+            },
 
             Expr::Assign(name, value) => {
                 let val = match self.evaluate(value) {
@@ -251,9 +257,32 @@ impl ExprVisitor for Interpreter {
                 Ok(function.call(self, &argument_vals))
             },
 
-            // TODO: Implement visit Dictionary expression
             Expr::Dictionary(expressions) => {
-                Ok(Literals::Nil)
+                let mut dict_val = HashMap::new();
+                for (key_expr, val_expr) in expressions.iter() {
+                    let key = self.evaluate(key_expr).unwrap();
+                    let val = self.evaluate(val_expr).unwrap();
+
+                    // Check if key expr evaluates to String or Number.
+                    match key {
+                        Literals::String(key) => {
+                            dict_val.insert(DictKey::StringKey(key), val);
+                        },
+                        Literals::Number(key) =>{
+                            // Check if integer.
+                            if key.fract() != 0.0 {
+                                e_red_ln!("Only String and Integer can be used as dictionary key.");
+                                return Err(());
+                            }
+                            dict_val.insert(DictKey::NumberKey(key as usize), val);
+                        },
+                        _ => {
+                            e_red_ln!("Only String and Integer can be used as dictionary key.");
+                            return Err(());
+                        }
+                    };
+                }
+                Ok(Literals::Dictionary(Box::new(dict_val)))
             },
 
             Expr::Grouping(expression) => {
@@ -306,9 +335,15 @@ impl ExprVisitor for Interpreter {
                 Ok(Literals::Nil)
             }
 
-            // TODO: Implement visit Tuple expression
             Expr::Tuple(expressions) => {
-                Ok(Literals::Nil)
+                let mut tup_vals = Vec::new();
+                for expr in expressions {
+                    tup_vals.push(match self.evaluate(expr) {
+                        Ok(v) => v,
+                        Err(_) => { break; }
+                    });
+                }
+                Ok(Literals::Tuple(Box::new(tup_vals)))
             },
 
             Expr::Unary(operator, right) => {
@@ -449,8 +484,52 @@ fn is_truthy(literal: &Literals) -> bool {
 
 fn is_equal(literal_a: &Literals, literal_b: &Literals) -> bool {
     match literal_a {
+        Literals::Array(a) => { match literal_b {
+            Literals::Array(other) => {
+                return if a.len() != other.len() {
+                    false
+                } else {
+                    for i in 0..a.len() {
+                        if !is_equal(&a[i], &other[i]) { return false; }
+                    }
+                    true
+                };
+            },
+            _ => false,
+        }},
+        Literals::Dictionary(d) => { match literal_b {
+            Literals::Dictionary(other) => {
+                return if d.len() != other.len() {
+                    false
+                } else {
+                    for (key, val) in d.iter() {
+                        let mut flag = true;
+                        match other.get(key) {
+                            Some(v) => if !is_equal(val, v) { flag = false; },
+                            None => { flag = false; }
+                        }
+                        if !flag { return false; }
+                    }
+                    true
+                };
+            },
+            _ => false,
+        }},
         Literals::String(s) => { match literal_b {
             Literals::String(other) => s == other,
+            _ => false,
+        }},
+        Literals::Tuple(t) => { match literal_b {
+            Literals::Tuple(other) => {
+                return if t.len() != other.len() {
+                    false
+                } else {
+                    for i in 0..t.len() {
+                        if !is_equal(&t[i], &other[i]) { return false; }
+                    }
+                    true
+                };
+            },
             _ => false,
         }},
         Literals::Number(n) => { match literal_b {
@@ -471,12 +550,46 @@ fn is_equal(literal_a: &Literals, literal_b: &Literals) -> bool {
 
 fn stringify(literal: Literals) -> String {
     match literal {
-        Literals::Nil => "nil".to_string(),
-
-        // Remove the '.0' at the end of integer-valued floats.
+        Literals::Array(a) => {
+            let mut res = String::from("[");
+            let arr = *a;
+            for item in arr.iter() {
+                res.push_str(&format!("{}, ", stringify(item.clone())));
+            }
+            res.truncate(res.len() - 2);
+            res.push(']');
+            res
+        },
+        Literals::Dictionary(h) => {
+            let mut res = String::from("{");
+            for (key, val) in *h {
+                res.push_str(&format!("{}: {}, ", key.stringify(), stringify(val)));
+            }
+            res.truncate(res.len() - 2);
+            res.push('}');
+            res
+        }
+        Literals::String(s) => format!("\"{}\"", s),
+        Literals::Tuple(a) => {
+            let mut res = String::from("(");
+            let arr = *a;
+            for item in arr.iter() {
+                res.push_str(&format!("{}, ", stringify(item.clone())));
+            }
+            res.truncate(res.len() - 2);
+            res.push(')');
+            res
+        },
         Literals::Number(n) => n.to_string(),
-        Literals::String(s) => s,
         Literals::Boolean(b) => b.to_string(),
+        Literals::Nil => "nil".to_string(),
+        Literals::Function(decla) => {
+            let func_name = match *decla {
+                Stmt::Function(name_token, _, _) => name_token.lexeme,
+                _ => { panic!("Magically found non-function decalation wrapped inside Literals::Function."); }
+            };
+            format!("<fun {}>", func_name)
+        }
         _ => panic!("Not implemented.")
     }
 }
