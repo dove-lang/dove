@@ -2,6 +2,8 @@ use crate::interpreter::Interpreter;
 use crate::environment::Environment;
 use crate::token::Literals;
 use crate::ast::*;
+use std::rc::Rc;
+use std::cell::RefCell;
 
 
 pub trait DoveCallable {
@@ -10,12 +12,14 @@ pub trait DoveCallable {
 
 pub struct DoveFunction {
     declaration: Stmt,
+    closure: Rc<RefCell<Environment>>,
 }
 
 impl DoveFunction {
-    pub fn new(declaration: Stmt) -> DoveFunction {
+    pub fn new(declaration: Stmt, closure: Rc<RefCell<Environment>>) -> DoveFunction {
         DoveFunction {
             declaration,
+            closure,
         }
     }
 
@@ -29,7 +33,7 @@ impl DoveFunction {
 
 impl DoveCallable for DoveFunction {
     fn call(&mut self, interpreter: &mut Interpreter, argument_vals: &Vec<Literals>) -> Literals {
-        let mut environment = Environment::new(Some(interpreter.globals.clone()));
+        let mut environment = Environment::new(Some(self.closure.clone()));
 
         match &self.declaration {
             Stmt::Function(_, params, body) => {
