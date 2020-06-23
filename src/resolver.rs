@@ -5,10 +5,19 @@ use crate::token::Token;
 use crate::interpreter::Interpreter;
 use crate::error_handler::CompiletimeErrorHandler;
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+enum FunctionType {
+    None,
+    Function,
+}
+
 pub struct Resolver<'a> {
     scopes: Vec<HashMap<String, bool>>,
     interpreter: &'a mut Interpreter,
     error_handler: CompiletimeErrorHandler,
+    current_function: FunctionType,
+    // TODO: should set in_loop to false when enter function?
+    in_loop: bool,
 }
 
 impl<'a> Resolver<'a> {
@@ -17,6 +26,8 @@ impl<'a> Resolver<'a> {
             scopes: vec![],
             interpreter,
             error_handler: CompiletimeErrorHandler::new(),
+            current_function: FunctionType::None,
+            in_loop: false,
         }
     }
 
@@ -36,13 +47,23 @@ impl<'a> Resolver<'a> {
                 self.end_scope();
             },
             Stmt::Break(token) => {
-                // TODO
+                if !self.in_loop {
+                    self.error_handler.token_error(
+                        token.clone(),
+                        "Break statements can only be used inside loops.".to_string(),
+                    );
+                }
             },
             Stmt::Class(name, superclass, methods) => {
                 // TODO: after finishing class
             },
             Stmt::Continue(token) => {
-                // TODO
+                if !self.in_loop {
+                    self.error_handler.token_error(
+                        token.clone(),
+                        "Continue statements can only be used inside loops.".to_string(),
+                    );
+                }
             },
             Stmt::Expression(expr) => {
                 self.visit_expr(expr);
@@ -50,41 +71,58 @@ impl<'a> Resolver<'a> {
             Stmt::For(variable, expr, block) => {
                 self.visit_expr(expr);
 
+                let prev_in_loop = self.in_loop;
+                self.in_loop = true;
+
                 self.begin_scope();
-                self.declare(&variable.lexeme);
-                self.define(&variable.lexeme);
+                self.declare(variable);
+                self.define(variable);
 
                 self.resolve(unwrap_block(block));
 
                 self.end_scope();
+
+                self.in_loop = prev_in_loop;
             },
             Stmt::Function(name, params, body) => {
-                self.declare(&name.lexeme);
-                self.define(&name.lexeme);
+                self.declare(name);
+                self.define(name);
 
                 self.visit_function(params, body)
             },
-            Stmt::Print(expr) => {
+            Stmt::Print(token, expr) => {
                 self.visit_expr(expr);
             },
-            Stmt::Return(expr) => {
-                // TODO
+            Stmt::Return(token, expr) => {
+                if self.current_function == FunctionType::None {
+                    self.error_handler.token_error(
+                        token.clone(),
+                        "Cannot return from top-level code.".to_string(),
+                    );
+                }
+
                 if let Some(expr) = expr {
                     self.visit_expr(expr);
                 }
             },
             Stmt::Variable(variable, initializer) => {
-                self.declare(&variable.lexeme);
+                self.declare(variable);
 
                 if let Some(expr) = initializer {
                     self.visit_expr(expr);
                 }
 
-                self.define(&variable.lexeme);
+                self.define(variable);
             },
             Stmt::While(condition, block) => {
                 self.visit_expr(condition);
+
+                let prev_in_loop = self.in_loop;
+                self.in_loop = true;
+
                 self.visit_stmt(block);
+
+                self.in_loop = prev_in_loop;
             },
         }
     }
@@ -98,7 +136,8 @@ impl<'a> Resolver<'a> {
             },
             Expr::Assign(variable, value) => {
                 self.visit_expr(value);
-                self.resolve_local(expr, &variable.lexeme)
+                // TODO: Check whether this exist first???
+                self.resolve_local(variable, &variable.lexeme)
             },
             Expr::Binary(expr1, _, expr2) => {
                 self.visit_expr(expr1);
@@ -162,24 +201,28 @@ impl<'a> Resolver<'a> {
                     // Since declared but not defined, must be in variable initializer
                     self.error_handler.token_error(variable.clone(), "Cannot use a variable in its own initializer.".to_string());
                 } else {
-                    self.resolve_local(expr, &variable.lexeme)
+                    self.resolve_local(variable, &variable.lexeme);
                 }
             },
         }
     }
 
     fn visit_function(&mut self, params: &Vec<Token>, body: &'a Stmt) {
+        let enclosing_function = self.current_function;
+        self.current_function = FunctionType::Function;
+
         self.begin_scope();
 
         for param in params {
-            self.declare(&param.lexeme);
-            self.define(&param.lexeme);
+            self.declare(param);
+            self.define(param);
         }
 
         // We don't directly visit the block since we already created a new scope here with params
         self.resolve(unwrap_block(body));
-
         self.end_scope();
+
+        self.current_function = enclosing_function;
     }
 }
 
@@ -192,15 +235,24 @@ impl<'a> Resolver<'a> {
         self.scopes.pop();
     }
 
-    fn declare(&mut self, name: &String) {
+    fn declare(&mut self, token: &Token) {
+        let name = &token.lexeme;
+
         if let Some(scope) = self.scopes.last_mut() {
-            scope.insert(name.clone(), false);
+            if scope.contains_key(name) {
+                self.error_handler.token_error(
+                    token.clone(),
+                    "Variable with this name already declared in this scope.".to_string(),
+                );
+            } else {
+                scope.insert(name.clone(), false);
+            }
         }
     }
 
-    fn define(&mut self, name: &String) {
+    fn define(&mut self, token: &Token) {
         if let Some(scope) = self.scopes.last_mut() {
-            scope.insert(name.clone(), true);
+            scope.insert(token.lexeme.clone(), true);
         }
     }
 
@@ -212,10 +264,10 @@ impl<'a> Resolver<'a> {
     }
 
     // Resolve the expression as a local variable
-    fn resolve_local(&mut self, expr: &'a Expr, name: &String) {
+    fn resolve_local(&mut self, token: &'a Token, name: &String) {
         for (depth, scope) in self.scopes.iter().rev().enumerate() {
             if scope.contains_key(name) {
-                self.interpreter.resolve(expr, depth);
+                self.interpreter.resolve(token, depth);
                 return;
             }
         }

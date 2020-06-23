@@ -235,19 +235,19 @@ impl Parser {
     }
 
     fn print_stmt(&mut self) -> Result<Stmt> {
-        self.consume(TokenType::PRINT)?;
+        let token = self.consume(TokenType::PRINT)?;
         let expr = self.expression()?;
-        Ok(Stmt::Print(expr))
+        Ok(Stmt::Print(token, expr))
     }
 
     fn return_stmt(&mut self) -> Result<Stmt> {
-        self.consume(TokenType::RETURN)?;
+        let token = self.consume(TokenType::RETURN)?;
 
         if self.check(TokenType::NEWLINE) || self.check(TokenType::RIGHT_BRACE) {
-            Ok(Stmt::Return(None))
+            Ok(Stmt::Return(token, None))
         } else {
             let expr = self.expression()?;
-            Ok(Stmt::Return(Some(expr)))
+            Ok(Stmt::Return(token, Some(expr)))
         }
     }
 

@@ -12,6 +12,8 @@ pub struct Interpreter {
     pub globals: Rc<RefCell<Environment>>,
     environment: Rc<RefCell<Environment>>,
     pub error_handler: RuntimeErrorHandler,
+    /// Depth of local variables, keyed by (line number, variable name)
+    locals: HashMap<(usize, String), usize>,
 }
 
 impl Interpreter {
@@ -21,6 +23,7 @@ impl Interpreter {
             globals: env.clone(),
             environment: env.clone(),
             error_handler: RuntimeErrorHandler::new(),
+            locals: HashMap::new(),
         }
     }
 
@@ -59,9 +62,17 @@ impl Interpreter {
         Ok(())
     }
 
-    pub fn resolve(&mut self, expr: &Expr, depth: usize) {
-        // TODO
-        println!("{:?}, depth {}", expr, depth);
+    pub fn resolve(&mut self, token: &Token, depth: usize) {
+        println!("{:?}, depth {}", token, depth);
+        self.insert_local(token, depth);
+    }
+
+    fn insert_local(&mut self, variable: &Token, depth: usize) {
+        self.locals.insert((variable.line, variable.lexeme.clone()), depth);
+    }
+
+    fn get_local(&self, variable: &Token) -> Option<&usize> {
+        self.locals.get(&(variable.line, variable.lexeme.clone()))
     }
 
     fn check_number_operand(&mut self, operator: &Token, left: &Literals, right: &Literals) -> Result<(), ()> {
@@ -103,11 +114,13 @@ impl ExprVisitor for Interpreter {
             },
 
             Expr::Assign(name, value) => {
-                let val = match self.evaluate(value) {
-                    Ok(v) => v,
-                    Err(()) => return Err(()),
+                let val = self.evaluate(value)?;
+
+                let res = match self.get_local(name) {
+                    Some(distance) => self.environment.borrow_mut().assign_at(*distance, name.clone(), val.clone()),
+                    None => self.globals.borrow_mut().assign(name.clone(), val.clone()),
                 };
-                let res = self.environment.borrow_mut().assign(name.clone(), val.clone());
+
                 match res {
                     Ok(_) => Ok(val),
                     Err(_) => {
@@ -371,7 +384,11 @@ impl ExprVisitor for Interpreter {
             },
 
             Expr::Variable(name) => {
-                let res = self.environment.borrow().get(name);
+                let res = match self.get_local(name) {
+                    Some(distance) => self.environment.borrow().get_at(*distance, name),
+                    None => self.globals.borrow().get(name),
+                };
+
                 match res {
                     Ok(literal) => Ok(literal),
                     Err(_) => {
@@ -431,7 +448,7 @@ impl StmtVisitor for Interpreter {
                 Ok(())
             },
 
-            Stmt::Print(expression) => {
+            Stmt::Print(_, expression) => {
                 match self.evaluate(expression) {
                     Ok(literal) => {
                         println!("{}", stringify(literal));
@@ -442,7 +459,7 @@ impl StmtVisitor for Interpreter {
             },
 
             // TODO: Implement visit Return statement.
-            Stmt::Return(expression) => {
+            Stmt::Return(_, expression) => {
                 let value = match expression {
                     Some(expression) => self.evaluate(expression).unwrap(),
                     None => Literals::Nil,
