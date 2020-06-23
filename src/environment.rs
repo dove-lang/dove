@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
+use std::fmt;
 
 use crate::token::Literals;
 use crate::token::Token;
@@ -55,5 +56,12 @@ impl Environment {
 
     pub fn define(&mut self, name: Token, value: Literals) {
         self.values.insert(name.lexeme, value);
+    }
+}
+
+impl fmt::Debug for Environment {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Environment")
+            .finish()
     }
 }

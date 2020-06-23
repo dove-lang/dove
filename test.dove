@@ -1,22 +1,12 @@
-fun main() {
-    let a = "top"
-
-    if true {
-        fun print_a(b) {
-            print a
-            print b
-
-            let a = 3
-
-            if glob {
-                print a
-            }
-        }
-
-        let a = "local"
-
-        print_a()
+fun make_counter() {
+    let i = 0
+    fun count() {
+        i = i + 1
+        print i
     }
-
-    let c = c
+    return count
 }
+
+let counter = make_counter()
+print counter()
+print counter()
