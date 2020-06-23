@@ -1,6 +1,10 @@
+use std::collections::HashMap;
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use crate::ast::Stmt;
 use crate::dove_callable::DoveFunction;
-use std::collections::HashMap;
+use crate::environment::Environment;
 
 #[derive(Debug, Clone)]
 pub struct Token {
@@ -64,7 +68,7 @@ pub enum Literals {
     Number(f64),
     Boolean(bool),
     Nil,
-    Function(Box<Stmt>),
+    Function(Box<Stmt>, Rc<RefCell<Environment>>),
     Class,
 }
 
@@ -78,7 +82,7 @@ impl Literals {
             Literals::Number(_) => "Number".to_string(),
             Literals::Boolean(_) => "Boolean".to_string(),
             Literals::Nil => "Nil".to_string(),
-            Literals::Function(_) => "Function".to_string(),
+            Literals::Function(_, _) => "Function".to_string(),
             Literals::Class => "Class".to_string(),
         }
     }
@@ -105,7 +109,7 @@ impl Literals {
     //--- Functions used only for Callables.
     pub fn to_function_object(self) -> Result<DoveFunction, ()> {
         match self {
-            Literals::Function(declaration) => Ok(DoveFunction::new(*declaration)),
+            Literals::Function(declaration, closure) => Ok(DoveFunction::new(*declaration, closure)),
             _ => { Err(()) }
         }
     }

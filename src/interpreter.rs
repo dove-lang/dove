@@ -443,7 +443,7 @@ impl StmtVisitor for Interpreter {
 
             Stmt::Function(name, params, body) => {
                 // Convert DoveFunction to Function Literal.
-                let function_literal = Literals::Function(Box::new(stmt.clone() ));
+                let function_literal = Literals::Function(Box::new(stmt.clone()), self.environment.clone());
                 self.environment.borrow_mut().define(name.clone(), function_literal);
                 Ok(())
             },
@@ -605,7 +605,7 @@ fn stringify(literal: Literals) -> String {
         Literals::Number(n) => n.to_string(),
         Literals::Boolean(b) => b.to_string(),
         Literals::Nil => "nil".to_string(),
-        Literals::Function(decla) => {
+        Literals::Function(decla, _) => {
             let func_name = match *decla {
                 Stmt::Function(name_token, _, _) => name_token.lexeme,
                 _ => { panic!("Magically found non-function decalation wrapped inside Literals::Function."); }

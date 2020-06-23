@@ -1,42 +1,12 @@
-let glob = true
-
-return
-
-break
-
-fun main() {
-    continue
-
-    let a = "top"
-    let b = "dont print this lol"
-
-    while true {
-        break
-        continue
+fun make_counter() {
+    let i = 0
+    fun count() {
+        i = i + 1
+        print i
     }
-
-    if true {
-        fun print_a(b) {
-            print a
-            print b
-
-            let a = 3
-
-            if glob {
-                print a
-            }
-        }
-
-        let a = "local"
-
-        print_a("print this")
-    }
-
-    return
+    return count
 }
 
-if false {
-    return
-}
-
-main()
+let counter = make_counter()
+print counter()
+print counter()
