@@ -335,9 +335,15 @@ impl ExprVisitor for Interpreter {
                 Ok(Literals::Nil)
             }
 
-            // TODO: Implement visit Tuple expression
             Expr::Tuple(expressions) => {
-                Ok(Literals::Nil)
+                let mut tup_vals = Vec::new();
+                for expr in expressions {
+                    tup_vals.push(match self.evaluate(expr) {
+                        Ok(v) => v,
+                        Err(_) => { break; }
+                    });
+                }
+                Ok(Literals::Tuple(Box::new(tup_vals)))
             },
 
             Expr::Unary(operator, right) => {
@@ -478,8 +484,52 @@ fn is_truthy(literal: &Literals) -> bool {
 
 fn is_equal(literal_a: &Literals, literal_b: &Literals) -> bool {
     match literal_a {
+        Literals::Array(a) => { match literal_b {
+            Literals::Array(other) => {
+                return if a.len() != other.len() {
+                    false
+                } else {
+                    for i in 0..a.len() {
+                        if !is_equal(&a[i], &other[i]) { return false; }
+                    }
+                    true
+                };
+            },
+            _ => false,
+        }},
+        Literals::Dictionary(d) => { match literal_b {
+            Literals::Dictionary(other) => {
+                return if d.len() != other.len() {
+                    false
+                } else {
+                    for (key, val) in d.iter() {
+                        let mut flag = true;
+                        match other.get(key) {
+                            Some(v) => if !is_equal(val, v) { flag = false; },
+                            None => { flag = false; }
+                        }
+                        if !flag { return false; }
+                    }
+                    true
+                };
+            },
+            _ => false,
+        }},
         Literals::String(s) => { match literal_b {
             Literals::String(other) => s == other,
+            _ => false,
+        }},
+        Literals::Tuple(t) => { match literal_b {
+            Literals::Tuple(other) => {
+                return if t.len() != other.len() {
+                    false
+                } else {
+                    for i in 0..t.len() {
+                        if !is_equal(&t[i], &other[i]) { return false; }
+                    }
+                    true
+                };
+            },
             _ => false,
         }},
         Literals::Number(n) => { match literal_b {
@@ -520,6 +570,16 @@ fn stringify(literal: Literals) -> String {
             res
         }
         Literals::String(s) => format!("\"{}\"", s),
+        Literals::Tuple(a) => {
+            let mut res = String::from("(");
+            let arr = *a;
+            for item in arr.iter() {
+                res.push_str(&format!("{}, ", stringify(item.clone())));
+            }
+            res.truncate(res.len() - 2);
+            res.push(')');
+            res
+        },
         Literals::Number(n) => n.to_string(),
         Literals::Boolean(b) => b.to_string(),
         Literals::Nil => "nil".to_string(),
