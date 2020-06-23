@@ -10,8 +10,8 @@ pub enum Stmt {
     Expression  (Expr),
     For         (Token, Expr, Box<Stmt>),
     Function    (Token, Vec<Token>, Box<Stmt>),
-    Print       (Expr),
-    Return      (Option<Expr>),
+    Print       (Token, Expr),
+    Return      (Token, Option<Expr>),
     Variable    (Token, Option<Expr>),
     While       (Expr, Box<Stmt>),
 }

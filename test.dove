@@ -1,5 +1,19 @@
+let glob = true
+
+return
+
+break
+
 fun main() {
+    continue
+
     let a = "top"
+    let b = "dont print this lol"
+
+    while true {
+        break
+        continue
+    }
 
     if true {
         fun print_a(b) {
@@ -15,8 +29,14 @@ fun main() {
 
         let a = "local"
 
-        print_a()
+        print_a("print this")
     }
 
-    let c = c
+    return
 }
+
+if false {
+    return
+}
+
+main()

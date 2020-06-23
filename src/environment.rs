@@ -8,7 +8,7 @@ use crate::token::Token;
 #[derive(Clone)]
 pub struct Environment {
     enclosing: Option<Rc<RefCell<Environment>>>,
-    values: HashMap<String, Literals>,
+    pub values: HashMap<String, Literals>,
     pub loop_status: LoopStatus,
 }
 
@@ -32,11 +32,17 @@ impl Environment {
     pub fn get(&self, name: &Token) -> Result<Literals, ()> {
         match self.values.get(&name.lexeme) {
             Some(v) => Ok(v.clone()),
-            None => {
-                match &self.enclosing {
-                    Some(e) => e.borrow().get(name),
-                    None => Err(()),
-                }
+            None => Err(()),
+        }
+    }
+
+    pub fn get_at(&self, distance: usize, name: &Token) -> Result<Literals, ()> {
+        if distance <= 0 {
+            self.get(name)
+        } else {
+            match &self.enclosing {
+                Some(enclosing) => enclosing.borrow().get_at(distance - 1, name),
+                None => Err(())
             }
         }
     }
@@ -46,9 +52,17 @@ impl Environment {
             self.values.insert(name.lexeme, value);
             Ok(())
         } else {
-            match &mut self.enclosing {
-                Some(e) => e.borrow_mut().assign(name, value),
-                None => Err(()),
+            Err(())
+        }
+    }
+
+    pub fn assign_at(&mut self, distance: usize, name: Token, value: Literals) -> Result<(), ()> {
+        if distance <= 0 {
+            self.assign(name, value)
+        } else {
+            match &self.enclosing {
+                Some(enclosing) => enclosing.borrow_mut().assign_at(distance - 1, name, value),
+                None => Err(())
             }
         }
     }
