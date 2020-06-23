@@ -59,6 +59,11 @@ impl Interpreter {
         Ok(())
     }
 
+    pub fn resolve(&mut self, expr: &Expr, depth: usize) {
+        // TODO
+        println!("{:?}, depth {}", expr, depth);
+    }
+
     fn check_number_operand(&mut self, operator: &Token, left: &Literals, right: &Literals) -> Result<(), ()> {
         match left {
             Literals::Number(_) => { match right {

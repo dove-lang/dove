@@ -12,3 +12,4 @@ pub mod interpreter;
 pub mod environment;
 pub mod parser;
 pub mod error_handler;
+pub mod resolver;

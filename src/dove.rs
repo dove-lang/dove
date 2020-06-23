@@ -7,6 +7,7 @@ use chrono::prelude::*;
 use crate::scanner::*;
 use crate::interpreter::Interpreter;
 use crate::parser::Parser;
+use crate::resolver::Resolver;
 
 pub struct Dove {
     interpreter: Interpreter,
@@ -84,6 +85,9 @@ impl Dove {
         // if self.had_error {
         //     return self;
         // }
+
+        let mut resolver = Resolver::new(&mut self.interpreter);
+        resolver.resolve(&statements);
 
         self.interpreter.interpret(statements);
         self

@@ -1,16 +1,22 @@
-fun test_while_return(n) {
-    print n
-    while n != 1 {
-        n = n - 1
-        print n
-    }
-    while n == 1 {
-        while true {
-            {
-                return -1
+fun main() {
+    let a = "top"
+
+    if true {
+        fun print_a(b) {
+            print a
+            print b
+
+            let a = 3
+
+            if glob {
+                print a
             }
         }
-    }
-}
 
-print test_while_return(5)
+        let a = "local"
+
+        print_a()
+    }
+
+    let c = c
+}
