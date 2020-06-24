@@ -323,8 +323,6 @@ impl ExprVisitor for Interpreter {
                 Ok(Literals::Nil)
             },
 
-            // TODO: Implement visit Index expression.
-
             Expr::IndexGet(value, index) => {
                 let evaluated_value = match self.evaluate(value) {
                     Ok(v) => v,
@@ -552,11 +550,13 @@ impl StmtVisitor for Interpreter {
                 self.execute_block(statements, Environment::new(Some(self.environment.clone())))
             },
 
-            // TODO: Implement visit Break statement.
-            Stmt::Break(_) => {Ok(())},
+            Stmt::Break(_) => {
+                Err(Literals::Break)
+            },
 
-            // TODO: Implement visit Continue statement.
-            Stmt::Continue(_) => {Ok(())},
+            Stmt::Continue(_) => {
+                Err(Literals::Continue)
+            },
 
             // TODO: Implement visit Class statement.
             Stmt::Class(name, superclass, methods) => {Ok(())},
@@ -565,20 +565,46 @@ impl StmtVisitor for Interpreter {
                 let res = self.evaluate(expression);
                 match res {
                     Ok(_) => { Ok(()) },
-                    // TODO: Handle possible runtime error after add tokens to Stmt::Expression.
                     Err(_) => { Ok(()) }
                 }
             },
 
-            // TODO: Finish visit For statement.
             Stmt::For(var_name, range_name, body) => {
-                let sub_env = Environment::new(Some(self.environment.clone()));
+                let range_vals = match self.evaluate(range_name) {
+                    Ok(v) => v,
+                    Err(()) => { return Ok(()); }
+                };
+                match range_vals {
+                    Literals::Array(arr) => {
+                        for item in arr.borrow().iter() {
+                            let mut sub_env = Environment::new(Some(self.environment.clone()));
+                            sub_env.define(var_name.clone(), item.clone());
+                            match &**body {
+                                Stmt::Block(stmts) => {
+                                    match self.execute_block(&stmts, sub_env) {
+                                        Ok(()) => {},
+                                        Err(return_val) => {
+                                            match return_val {
+                                                Literals::Break => { return Ok(()); },
+                                                Literals::Continue => {}
+                                                _ => { return Err(return_val); }
+                                            }
+                                        }
+                                    }
+                                },
+                                _ => {
+                                    self.report_err(var_name.clone(), "Expected block statement in a 'for' loop.".to_string());
+                                    return Ok(());
+                                }
+                            }
+                        }
+                    },
+                    _ => {
+                        self.report_err(var_name.clone(), format!("Cannot iterate over type '{}'", range_vals.to_string()));
+                        return Ok(());
+                    }
+                }
 
-                // match range_name.token_type {
-                //     TokenType::IDENTIFIER => {
-                //     },
-                //     _ => {}
-                // }
                 Ok(())
             },
 
@@ -599,7 +625,6 @@ impl StmtVisitor for Interpreter {
                 }
             },
 
-            // TODO: Implement visit Return statement.
             Stmt::Return(_, expression) => {
                 let value = match expression {
                     Some(expression) => self.evaluate(expression).unwrap(),
@@ -625,7 +650,11 @@ impl StmtVisitor for Interpreter {
                      match self.execute(body) {
                          Ok(_) => {},
                          Err(return_val) => {
-                             return Err(return_val);
+                             match return_val {
+                                 Literals::Break => { return Ok(()); },
+                                 Literals::Continue => { continue; }
+                                 _ => { return Err(return_val); }
+                             }
                          }
                      }
                 }
