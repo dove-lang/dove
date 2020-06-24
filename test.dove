@@ -1,32 +1,22 @@
-fun make_counter() {
-    let i = 0
-    fun count() {
-        i = i + 1
-        print i
-    }
-    return count
+class Person {
 }
 
-let counter = make_counter()
-print counter()
-print counter()
+let person = Person()
+// Error
+print person.name
 
-let x = "global"
+person.name = "Hmm"
+print person.name
 
-{
-    fun print_x() {
-        print x
+print person.age = 69
 
-        {
-            {
-                print x
-            }
-        }
-    }
+let str = "string"
+// Error
+print str.property
+str.property = 1
 
-    print_x()
-    x = "still global"
-    print_x()
-    let x = "local"
-    print_x()
-}
+let person2 = person
+print person2.name
+
+person2.name = "Changed"
+print person2.name == person.name

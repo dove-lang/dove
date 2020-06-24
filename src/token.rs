@@ -5,6 +5,7 @@ use std::rc::Rc;
 use crate::ast::Stmt;
 use crate::dove_callable::DoveFunction;
 use crate::environment::Environment;
+use crate::dove_class::{DoveClass, DoveInstance};
 
 #[derive(Debug, Clone)]
 pub struct Token {
@@ -69,7 +70,8 @@ pub enum Literals {
     Boolean(bool),
     Nil,
     Function(Box<Stmt>, Rc<RefCell<Environment>>),
-    Class,
+    Class(Rc<DoveClass>),
+    Instance(Rc<RefCell<DoveInstance>>),
 }
 
 impl Literals {
@@ -83,7 +85,8 @@ impl Literals {
             Literals::Boolean(_) => "Boolean".to_string(),
             Literals::Nil => "Nil".to_string(),
             Literals::Function(_, _) => "Function".to_string(),
-            Literals::Class => "Class".to_string(),
+            Literals::Class(_) => "Class".to_string(),
+            Literals::Instance(_) => "Instance".to_string(),
         }
     }
 

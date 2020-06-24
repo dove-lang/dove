@@ -55,6 +55,10 @@ impl<'a> Resolver<'a> {
                 }
             },
             Stmt::Class(name, superclass, methods) => {
+                self.declare(name);
+                self.define(name);
+
+                // TODO: methods
                 // TODO: after finishing class
             },
             Stmt::Continue(token) => {

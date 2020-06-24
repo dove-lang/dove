@@ -6,6 +6,7 @@ use crate::ast::*;
 use crate::token::*;
 use crate::error_handler::*;
 use crate::dove_callable::*;
+use crate::dove_class::{DoveClass, DoveInstance};
 use crate::environment::Environment;
 
 pub struct Interpreter {
@@ -255,23 +256,32 @@ impl ExprVisitor for Interpreter {
                     });
                 }
 
-                // Try to convert the evaluated callee literal to a DoveFunction object.
-                let mut function = match callee_val.to_function_object(){
-                    Ok(f) => f,
-                    Err(()) => {
-                        self.report_err(paren.clone(), format!("Type '{}' is not callable.", callee_type));
-                        return Err(());
-                    }
-                };
+                // TODO: simplify
+                match callee_val {
+                    Literals::Class(class) => {
+                        let instance = DoveInstance::new(Rc::clone(&class));
+                        Ok(Literals::Instance(Rc::new(RefCell::new(instance))))
+                    },
+                    callee_val => {
+                        // Try to convert the evaluated callee literal to a DoveFunction object.
+                        let mut function = match callee_val.to_function_object(){
+                            Ok(f) => f,
+                            Err(()) => {
+                                self.report_err(paren.clone(), format!("Type '{}' is not callable.", callee_type));
+                                return Err(());
+                            }
+                        };
 
-                // Check arity.
-                if argument_vals.len() != function.arity() {
-                    self.report_err(paren.clone(), format!("Expected {} arguments but got {}",
-                                                           function.arity(), argument_vals.len()));
-                    return Err(());
+                        // Check arity.
+                        if argument_vals.len() != function.arity() {
+                            self.report_err(paren.clone(), format!("Expected {} arguments but got {}",
+                                                                function.arity(), argument_vals.len()));
+                            return Err(());
+                        }
+
+                        Ok(function.call(self, &argument_vals))
+                    },
                 }
-
-                Ok(function.call(self, &argument_vals))
             },
 
             Expr::Dictionary(expressions) => {
@@ -308,7 +318,32 @@ impl ExprVisitor for Interpreter {
 
             // TODO: Implement visit Get expression.
             Expr::Get(object, name) => {
-                Ok(Literals::Nil)
+                let expr = self.visit_expr(object)?;
+
+                match expr {
+                    Literals::Instance(instance) => {
+                        match instance.borrow().get(&name.lexeme) {
+                            Some(value) => Ok(value.clone()),
+                            None => {
+                                self.error_handler.report(
+                                    name.line,
+                                    "".to_string(),
+                                    format!("Undefined property '{}'.", name.lexeme),
+                                );
+                                Err(())
+                            },
+                        }
+                    },
+                    _ => {
+                        // TODO: add properties for non-instance values? (ex. array.length)
+                        self.error_handler.report(
+                            name.line,
+                            "".to_string(),
+                            format!("Cannot get property '{}' from a non-instance value.", name.lexeme),
+                        );
+                        Err(())
+                    }
+                }
             }
 
             Expr::IfExpr(condition, then_branch, else_branch) => {
@@ -339,7 +374,23 @@ impl ExprVisitor for Interpreter {
 
             // TODO: Implement visit Set expression.
             Expr::Set(object, name, value) => {
-                Ok(Literals::Nil)
+                let expr = self.visit_expr(object)?;
+                let value = self.visit_expr(value)?;
+
+                match expr {
+                    Literals::Instance(instance) => {
+                        instance.borrow_mut().set(name.lexeme.clone(), value.clone());
+                        Ok(value.clone())
+                    },
+                    _ => {
+                        self.error_handler.report(
+                            name.line,
+                            "".to_string(),
+                            format!("Cannot set property '{}' of a non-instance value.", name.lexeme),
+                        );
+                        Err(())
+                    }
+                }
             }
 
             // TODO: Implement visit Self expression.
@@ -416,8 +467,15 @@ impl StmtVisitor for Interpreter {
             // TODO: Implement visit Continue statement.
             Stmt::Continue(_) => {Ok(())},
 
-            // TODO: Implement visit Class statement.
-            Stmt::Class(name, superclass, methods) => {Ok(())},
+            Stmt::Class(name, superclass, methods) => {
+                let class = Rc::new(DoveClass::new(name.lexeme.clone()));
+
+                // TODO: define methods, superclasses, etc.
+
+                self.environment.borrow_mut().define(name.clone(), Literals::Class(class));
+
+                Ok(())
+            },
 
             Stmt::Expression(expression) => {
                 let res = self.evaluate(expression);
