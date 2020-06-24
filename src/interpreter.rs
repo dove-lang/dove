@@ -398,14 +398,81 @@ impl ExprVisitor for Interpreter {
                         }
                     },
                     _ => {
-                        e_red_ln!("Cannot get value by index from '{}'.", evaluated_value.to_string());
+                        e_red_ln!("Cannot get value by index/key from '{}'.", evaluated_value.to_string());
                         Err(())
                     }
                 }
             }
 
             Expr::IndexSet(expr, index, value) => {
-                Ok(Literals::Nil)
+                let evaluated_expr = match self.evaluate(expr) {
+                    Ok(v) => v,
+                    Err(_) => { return Err(()); }
+                };
+                let evaluated_index = match self.evaluate(index) {
+                    Ok(v) => v,
+                    Err(_) => { return Err(()); }
+                };
+                let evaluated_value = match self.evaluate(value) {
+                    Ok(v) => v,
+                    Err(_) => { return Err(()); }
+                };
+
+                match evaluated_expr {
+                    Literals::Array(arr) => {
+                        match evaluated_index.unwrap_int() {
+                            Ok(n) => {
+                                let old_val = match arr.borrow().get(n) {
+                                    Some(v) => v.clone(),
+                                    None => {
+                                        e_red_ln!("Index '{}' out of range.", n);
+                                        return Err(());
+                                    },
+                                };
+                                // Index must exist, otherwise already returned Err(()).
+                                arr.borrow_mut()[n] = evaluated_value;
+                                Ok(old_val)
+                            },
+                            Err(_) => {
+                                e_red_ln!("Index must be an integer.");
+                                Err(())
+                            }
+                        }
+                    },
+                    Literals::Dictionary(dict) => {
+                        match evaluated_index {
+                            Literals::Number(i) => {
+                                if i.fract() != 0.0 {
+                                    e_red_ln!("Index must be an integer/string.");
+                                    return Err(());
+                                }
+                                let i = i as usize;
+                                let old_val = match dict.borrow().get(&DictKey::NumberKey(i)) {
+                                    Some(v) => v.clone(),
+                                    None => Literals::Nil,
+                                };
+                                dict.borrow_mut().insert(DictKey::NumberKey(i), evaluated_value);
+                                Ok(old_val)
+                            },
+                            Literals::String(s) => {
+                                let old_val = match dict.borrow().get(&DictKey::StringKey(s.clone())) {
+                                    Some(v) => v.clone(),
+                                    None => Literals::Nil,
+                                };
+                                dict.borrow_mut().insert(DictKey::StringKey(s.clone()), evaluated_value);
+                                Ok(old_val)
+                            },
+                            _ => {
+                                e_red_ln!("Index must be an integer/string.");
+                                Err(())
+                            }
+                        }
+                    }
+                    _ => {
+                        e_red_ln!("Cannot set value by index/key for '{}'.", evaluated_value.to_string());
+                        Err(())
+                    }
+                }
             }
 
             Expr::Literal(value) => {
