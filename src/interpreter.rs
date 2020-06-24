@@ -205,6 +205,18 @@ impl ExprVisitor for Interpreter {
                             Err(_) => Err(())
                         }
                     },
+                    TokenType::SLASH_GREATER => {
+                        match self.check_number_operand(operator, &left_val, &right_val) {
+                            Ok(_) => Ok(Literals::Number((left_val.unwrap_number().unwrap() / right_val.unwrap_number().unwrap()).ceil())),
+                            Err(_) => Err(())
+                        }
+                    },
+                    TokenType::SLASH_LESS => {
+                        match self.check_number_operand(operator, &left_val, &right_val) {
+                            Ok(_) => Ok(Literals::Number((left_val.unwrap_number().unwrap() / right_val.unwrap_number().unwrap()).floor())),
+                            Err(_) => Err(())
+                        }
+                    },
                     TokenType::STAR => {
                         match left_val {
                             Literals::Number(l) => { match right_val {

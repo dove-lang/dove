@@ -84,7 +84,11 @@ impl Scanner {
             }
             // Slash or comment.
             '/' => {
-                if self.match_char('/') {
+                if self.match_char('>') {
+                    self.add_token(TokenType::SLASH_GREATER, None);
+                } else if self.match_char('<') {
+                    self.add_token(TokenType::SLASH_LESS, None);
+                } else if self.match_char('/') {
                     while self.peek() != '\n' && !self.is_at_end() { self.advance(); }
                 } else if self.match_char('*') {
                     self.block_comment();

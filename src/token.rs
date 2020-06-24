@@ -36,9 +36,10 @@ impl Token {
 pub enum TokenType {
     // Single-character tokens.
     LEFT_PAREN, RIGHT_PAREN, LEFT_BRACE, RIGHT_BRACE, LEFT_BRACKET, RIGHT_BRACKET,
-    COMMA, COLON, MINUS, NEWLINE, PLUS, SLASH, STAR,
+    COMMA, COLON, MINUS, NEWLINE, PLUS, STAR,
 
     // One or two character tokens.
+    SLASH, SLASH_LESS, SLASH_GREATER,
     BACKSLASH,
     BANG, BANG_EQUAL,
     EQUAL, EQUAL_EQUAL,
