@@ -8,19 +8,27 @@ use crate::token::Literals;
 #[derive(Debug)]
 pub struct DoveClass {
     name: String,
+    superclass: Option<Rc<DoveClass>>,
     methods: HashMap<String, Rc<DoveFunction>>,
 }
 
 impl DoveClass {
-    pub fn new(name: String, methods: HashMap<String, Rc<DoveFunction>>) -> DoveClass {
+    pub fn new(name: String, superclass: Option<Rc<DoveClass>>, methods: HashMap<String, Rc<DoveFunction>>) -> DoveClass {
         DoveClass {
             name,
+            superclass,
             methods,
         }
     }
 
-    fn find_method(&self, name: &String) -> Option<Rc<DoveFunction>> {
-        self.methods.get(name).map(Rc::clone)
+    pub fn find_method(&self, name: &str) -> Option<Rc<DoveFunction>> {
+        if let Some(method) = self.methods.get(name) {
+            Some(Rc::clone(&method))
+        } else if let Some(superclass) = &self.superclass {
+            superclass.find_method(name)
+        } else {
+            None
+        }
     }
 }
 
@@ -39,7 +47,7 @@ impl DoveInstance {
         }
     }
 
-    pub fn get(instance: Rc<RefCell<DoveInstance>>, field: &String) -> Option<Literals> {
+    pub fn get(instance: Rc<RefCell<DoveInstance>>, field: &str) -> Option<Literals> {
         let instance_ref = instance.borrow();
         instance_ref.fields.get(field).map(Literals::clone)
             .or_else(|| {

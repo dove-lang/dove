@@ -1,28 +1,16 @@
 class Person {
-    fun say_hi() {
-        print "hi " + self.name
-
-        let count = 0
-
-        fun say_hi_count() {
-            count = count + 1
-            print "hi " + self.name
-            print count
-        }
-
-        return say_hi_count
-    }
-
-    fun get_self() {
-        return self
+    fun init(name) {
+        self.name = name
     }
 }
 
-let person = Person()
-person.name = "Hmm"
+class PersonSayHi from Person {
+    fun say_hi() {
+        print "hi, I'm " + self.name
+    }
+}
 
-let count = person.say_hi()
-count()
-count()
+let person = PersonSayHi("ur dad")
+print person.name
 
-print person.get_self().get_self().get_self().name
+person.say_hi()

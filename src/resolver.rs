@@ -10,6 +10,7 @@ enum FunctionType {
     None,
     Function,
     Method,
+    Initializer,
 }
 
 pub struct Resolver<'a> {
@@ -59,12 +60,30 @@ impl<'a> Resolver<'a> {
                 self.declare(name);
                 self.define(name);
 
+                if let Some(superclass) = superclass {
+                    self.resolve_local(superclass, &superclass.lexeme);
+
+                    if superclass.lexeme == name.lexeme {
+                        self.error_handler.token_error(
+                            superclass.clone(),
+                            "A class cannot inherit from itself.".to_string(),
+                        );
+                    }
+                }
+
                 self.begin_scope();
                 self.scopes.last_mut().unwrap().insert("self".to_string(), true);
 
                 for method in methods {
                     match method {
-                        Stmt::Function(_, params, body) => self.visit_function(params, body, FunctionType::Method),
+                        Stmt::Function(name, params, body) => self.visit_function(
+                            params,
+                            body,
+                            if name.lexeme == "init"{
+                                FunctionType::Initializer
+                            } else {
+                                FunctionType::Method
+                            }),
                         _ => panic!("Class methods contain non-function statements."),
                     }
                 }
@@ -118,6 +137,13 @@ impl<'a> Resolver<'a> {
                 }
 
                 if let Some(expr) = expr {
+                    if self.current_function == FunctionType::Initializer {
+                        self.error_handler.token_error(
+                            token.clone(),
+                            "Cannot return a value from an initializer.".to_string(),
+                        );
+                    }
+
                     self.visit_expr(expr);
                 }
             },

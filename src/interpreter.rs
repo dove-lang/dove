@@ -248,26 +248,37 @@ impl ExprVisitor for Interpreter {
             },
 
             Expr::Call(callee, paren, arguments) => {
-                let callee_val = match self.evaluate(callee) {
-                    Ok(v) => v,
-                    Err(_) => { return Err(()); }
-                };
+                let callee_val = self.evaluate(callee)?;
                 let callee_type = (&callee_val).to_string();
 
                 // Evaluate argument literals.
                 let mut argument_vals = Vec::new();
                 for argument in arguments.iter() {
-                    argument_vals.push(match self.evaluate(argument) {
-                        Ok(v) => v,
-                        Err(_) => { return Err(()); }
-                    });
+                    argument_vals.push(self.evaluate(argument)?);
                 }
 
                 // TODO: simplify
                 match callee_val {
                     Literals::Class(class) => {
-                        let instance = DoveInstance::new(Rc::clone(&class));
-                        Ok(Literals::Instance(Rc::new(RefCell::new(instance))))
+                        let instance = Rc::new(RefCell::new(DoveInstance::new(Rc::clone(&class))));
+
+                        if let Some(initializer) = class.find_method("init") {
+                            let bound_init = initializer.bind(Rc::clone(&instance));
+
+                            // TODO: move this somewhere else? inside function.call?
+                            if argument_vals.len() != bound_init.arity() {
+                                self.report_err(
+                                    paren.clone(),
+                                    format!("Expected {} arguments but got {}.",
+                                    bound_init.arity(), argument_vals.len())
+                                );
+                                return Err(());
+                            }
+
+                            bound_init.call(self, &argument_vals);
+                        }
+
+                        Ok(Literals::Instance(instance))
                     },
                     Literals::Function(function) => {
                         // // Try to convert the evaluated callee literal to a DoveFunction object.
@@ -479,8 +490,24 @@ impl StmtVisitor for Interpreter {
             // TODO: Implement visit Continue statement.
             Stmt::Continue(_) => {Ok(())},
 
-            Stmt::Class(name, superclass, methods) => {
+            Stmt::Class(name, superclass_name, methods) => {
                 let mut methods_map = HashMap::new();
+
+                let mut superclass = None;
+
+                if let Some(superclass_name) = superclass_name {
+                    if let Some(Literals::Class(class)) = self.lookup_variable(superclass_name) {
+                        superclass = Some(class);
+                    } else {
+                        self.error_handler.report(
+                            superclass_name.line,
+                            "".to_string(),
+                            format!("Cannot find the class named '{}'.", superclass_name.lexeme),
+                        );
+                        // TODO: add better error handling
+                        return Ok(());
+                    }
+                }
 
                 for method in methods {
                     let name = match method {
@@ -492,7 +519,7 @@ impl StmtVisitor for Interpreter {
                     methods_map.insert(name.lexeme.clone(), function);
                 }
 
-                let class = Rc::new(DoveClass::new(name.lexeme.clone(), methods_map));
+                let class = Rc::new(DoveClass::new(name.lexeme.clone(), superclass, methods_map));
 
                 // TODO: define methods, superclasses, etc.
 
