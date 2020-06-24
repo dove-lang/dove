@@ -427,9 +427,59 @@ impl ExprVisitor for Interpreter {
                 }
             }
 
-            // TODO: Implement visit Super expression.
-            Expr::SuperExpr(keyword, method) => {
-                Ok(Literals::Nil)
+            Expr::SuperExpr(token, method) => {
+                // Get distance to super to be used for self later
+                let distance = match self.get_local(token) {
+                    Some(distance) => *distance,
+                    None => {
+                        self.report_err(
+                            method.clone(),
+                            "Cannot resolve 'super' in this scope.".to_string(),
+                        );
+                        return Err(());
+                    },
+                };
+
+                let maybe_class = self.environment.borrow().get_at(distance, &token.lexeme);
+                let class = match maybe_class {
+                    Ok(Literals::Class(class)) => class,
+                    _ => {
+                        self.report_err(
+                            method.clone(),
+                            "Cannot find superclass.".to_string(),
+                        );
+                        return Err(());
+                    },
+                };
+
+                let method = match class.find_method(&method.lexeme) {
+                    Some(method) => method,
+                    None => {
+                        self.report_err(
+                            method.clone(),
+                            format!("Cannot find method '{}' from class '{}'", method.lexeme, class.name),
+                        );
+                        return Err(());
+                    },
+                };
+
+                // TODO: find a more "elegant" solution. If so, remember to change visit super/self in resolver
+                // TODO: consider for static methods?
+                let maybe_instance = self.environment.borrow().get_at(distance - 1, "self");
+                let instance = match maybe_instance {
+                    Ok(Literals::Instance(instance)) => instance,
+                    _ => {
+                        // TODO: report better error
+                        self.report_err(
+                            token.clone(),
+                            format!("Cannot find 'self' in the scope."),
+                        );
+                        return Err(());
+                    },
+                };
+
+                let bound_method = method.bind(instance);
+                Ok(Literals::Function(Rc::new(bound_method)))
             }
 
             Expr::Tuple(expressions) => {
@@ -510,12 +560,22 @@ impl StmtVisitor for Interpreter {
                 }
 
                 for method in methods {
+                    let mut environment = Rc::clone(&self.environment);
+
                     let name = match method {
                         Stmt::Function(name, _, _) => name,
                         _ => panic!("Class contains non-method statements."),
                     };
 
-                    let function = Rc::new(DoveFunction::new(method.clone(), Rc::clone(&self.environment)));
+                    if let Some(superclass) = &superclass {
+                        environment = Rc::new(RefCell::new(Environment::new(Some(environment))));
+                        environment.borrow_mut().define(
+                            "super".to_string(),
+                            Literals::Class(Rc::clone(superclass)),
+                        );
+                    }
+
+                    let function = Rc::new(DoveFunction::new(method.clone(), environment));
                     methods_map.insert(name.lexeme.clone(), function);
                 }
 

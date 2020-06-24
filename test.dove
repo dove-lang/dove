@@ -2,6 +2,14 @@ class Person {
     fun init(name) {
         self.name = name
     }
+
+    fun call_no_super() {
+        super.some_method()
+    }
+
+    fun getself() {
+        return self
+    }
 }
 
 class PersonSayHi from Person {
@@ -10,7 +18,23 @@ class PersonSayHi from Person {
     }
 }
 
-let person = PersonSayHi("ur dad")
-print person.name
+class PersonSayHiTwice from PersonSayHi {
+    fun say_hi() {
+        super.say_hi()
+        super.say_hi()
+    }
 
+    fun call_something_that_does_not_exist() {
+        super.hmm()
+    }
+}
+
+let person = PersonSayHiTwice("ur dad")
 person.say_hi()
+
+person.call_something_that_does_not_exist()
+
+let person2 = Person("hmm")
+person2.call_no_super()
+
+print person.getself().getself().getself().name

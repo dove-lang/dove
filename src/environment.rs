@@ -30,14 +30,14 @@ impl Environment {
         }
     }
 
-    pub fn get(&self, name: &String) -> Result<Literals, ()> {
+    pub fn get(&self, name: &str) -> Result<Literals, ()> {
         match self.values.get(name) {
             Some(v) => Ok(v.clone()),
             None => Err(()),
         }
     }
 
-    pub fn get_at(&self, distance: usize, name: &String) -> Result<Literals, ()> {
+    pub fn get_at(&self, distance: usize, name: &str) -> Result<Literals, ()> {
         if distance <= 0 {
             self.get(name)
         } else {

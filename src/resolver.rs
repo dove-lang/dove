@@ -13,11 +13,19 @@ enum FunctionType {
     Initializer,
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+enum ClassType {
+    None,
+    Class,
+    Subclass,
+}
+
 pub struct Resolver<'a> {
     scopes: Vec<HashMap<String, bool>>,
     interpreter: &'a mut Interpreter,
     error_handler: CompiletimeErrorHandler,
     current_function: FunctionType,
+    current_class: ClassType,
     // TODO: should set in_loop to false when enter function?
     in_loop: bool,
 }
@@ -29,6 +37,7 @@ impl<'a> Resolver<'a> {
             interpreter,
             error_handler: CompiletimeErrorHandler::new(),
             current_function: FunctionType::None,
+            current_class: ClassType::None,
             in_loop: false,
         }
     }
@@ -69,10 +78,22 @@ impl<'a> Resolver<'a> {
                             "A class cannot inherit from itself.".to_string(),
                         );
                     }
+
+                    // Begin scope to bind super
+                    self.begin_scope();
+                    self.scopes.last_mut().unwrap().insert("super".to_string(), true);
                 }
 
                 self.begin_scope();
                 self.scopes.last_mut().unwrap().insert("self".to_string(), true);
+
+                // Set class type
+                let prev_class = self.current_class;
+                self.current_class = if superclass.is_some() {
+                    ClassType::Subclass
+                } else {
+                    ClassType::Class
+                };
 
                 for method in methods {
                     match method {
@@ -88,9 +109,14 @@ impl<'a> Resolver<'a> {
                     }
                 }
 
-                self.end_scope();
+                if superclass.is_some() {
+                    // End scope that binds super
+                    self.end_scope();
+                }
 
-                // TODO: after finishing class
+                self.current_class = prev_class;
+
+                self.end_scope();
             },
             Stmt::Continue(token) => {
                 if !self.in_loop {
@@ -221,6 +247,13 @@ impl<'a> Resolver<'a> {
             },
             Expr::Literal(_) => (),
             Expr::SelfExpr(token) => {
+                if self.current_class == ClassType::None {
+                    self.error_handler.token_error(
+                        token.clone(),
+                        "Cannot use 'self' outside of a class.".to_string(),
+                    );
+                }
+
                 self.resolve_local(&token, &token.lexeme);
             },
             Expr::Set(obj, token, value) => {
@@ -228,12 +261,19 @@ impl<'a> Resolver<'a> {
                 self.visit_expr(value);
             },
             Expr::SuperExpr(token, method) => {
-                if self.current_function != FunctionType::Method {
+                if self.current_class == ClassType::None {
                     self.error_handler.token_error(
                         token.clone(),
-                        "'super' can only be used inside class methods.".to_string(),
+                        "Cannot use 'super' outside of a class.".to_string(),
+                    );
+                } else if self.current_class == ClassType::Class {
+                    self.error_handler.token_error(
+                        token.clone(),
+                        "Cannot use 'super' inside a class with no superclass.".to_string(),
                     );
                 }
+
+                self.resolve_local(token, &token.lexeme);
             },
             Expr::Tuple(exprs) => {
                 for expr in exprs {
