@@ -1,32 +1,8 @@
-fun make_counter() {
-    let i = 0
-    fun count() {
-        i = i + 1
-        print i
+for i in [1, 2, 3] {
+    print i
+    {
+        break
     }
-    return count
+    print 3
 }
 
-let counter = make_counter()
-print counter()
-print counter()
-
-let x = "global"
-
-{
-    fun print_x() {
-        print x
-
-        {
-            {
-                print x
-            }
-        }
-    }
-
-    print_x()
-    x = "still global"
-    print_x()
-    let x = "local"
-    print_x()
-}

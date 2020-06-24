@@ -36,9 +36,10 @@ impl Token {
 pub enum TokenType {
     // Single-character tokens.
     LEFT_PAREN, RIGHT_PAREN, LEFT_BRACE, RIGHT_BRACE, LEFT_BRACKET, RIGHT_BRACKET,
-    COMMA, COLON, MINUS, NEWLINE, PLUS, SLASH, STAR,
+    COMMA, COLON, MINUS, NEWLINE, PLUS, STAR,
 
     // One or two character tokens.
+    SLASH, SLASH_LESS, SLASH_GREATER,
     BACKSLASH,
     BANG, BANG_EQUAL,
     EQUAL, EQUAL_EQUAL,
@@ -62,6 +63,8 @@ pub enum TokenType {
 #[derive(Debug, Clone)]
 pub enum Literals {
     Array(Rc<RefCell<Vec<Literals>>>),
+    Break,
+    Continue,
     Dictionary(Rc<RefCell<HashMap<DictKey, Literals>>>),
     String(String),
     Tuple(Box<Vec<Literals>>),
@@ -76,6 +79,8 @@ impl Literals {
     pub fn to_string(&self) -> String {
         match self {
             Literals::Array(_) => "Array".to_string(),
+            Literals::Break => "Break".to_string(),
+            Literals::Continue => "Continue".to_string(),
             Literals::Dictionary(_) => "Dictionary".to_string(),
             Literals::String(_) => "String".to_string(),
             Literals::Tuple(_) => "Tuple".to_string(),
