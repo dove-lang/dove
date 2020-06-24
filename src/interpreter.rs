@@ -652,7 +652,9 @@ fn stringify(literal: Literals) -> String {
             for item in arr.iter() {
                 res.push_str(&format!("{}, ", stringify(item.clone())));
             }
-            res.truncate(res.len() - 2);
+            if res.len() > 1 {
+                res.truncate(res.len() - 2);
+            }
             res.push(']');
             res
         },
@@ -661,7 +663,9 @@ fn stringify(literal: Literals) -> String {
             for (key, val) in h.borrow().iter() {
                 res.push_str(&format!("{}: {}, ", key.stringify(), stringify(val.clone())));
             }
-            res.truncate(res.len() - 2);
+            if res.len() > 1 {
+                res.truncate(res.len() - 2);
+            }
             res.push('}');
             res
         }
@@ -672,7 +676,9 @@ fn stringify(literal: Literals) -> String {
             for item in arr.iter() {
                 res.push_str(&format!("{}, ", stringify(item.clone())));
             }
-            res.truncate(res.len() - 2);
+            if res.len() > 1 {
+                res.truncate(res.len() - 2);
+            }
             res.push(')');
             res
         },
