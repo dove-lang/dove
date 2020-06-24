@@ -9,6 +9,7 @@ use crate::error_handler::CompiletimeErrorHandler;
 enum FunctionType {
     None,
     Function,
+    Method,
 }
 
 pub struct Resolver<'a> {
@@ -58,7 +59,18 @@ impl<'a> Resolver<'a> {
                 self.declare(name);
                 self.define(name);
 
-                // TODO: methods
+                self.begin_scope();
+                self.scopes.last_mut().unwrap().insert("self".to_string(), true);
+
+                for method in methods {
+                    match method {
+                        Stmt::Function(_, params, body) => self.visit_function(params, body, FunctionType::Method),
+                        _ => panic!("Class methods contain non-function statements."),
+                    }
+                }
+
+                self.end_scope();
+
                 // TODO: after finishing class
             },
             Stmt::Continue(token) => {
@@ -92,7 +104,7 @@ impl<'a> Resolver<'a> {
                 self.declare(name);
                 self.define(name);
 
-                self.visit_function(params, body)
+                self.visit_function(params, body, FunctionType::Function)
             },
             Stmt::Print(token, expr) => {
                 self.visit_expr(expr);
@@ -183,14 +195,19 @@ impl<'a> Resolver<'a> {
             },
             Expr::Literal(_) => (),
             Expr::SelfExpr(token) => {
-                // TODO: after finishing class
+                self.resolve_local(&token, &token.lexeme);
             },
             Expr::Set(obj, token, value) => {
                 self.visit_expr(obj);
                 self.visit_expr(value);
             },
             Expr::SuperExpr(token, method) => {
-                // TODO: after finishing class
+                if self.current_function != FunctionType::Method {
+                    self.error_handler.token_error(
+                        token.clone(),
+                        "'super' can only be used inside class methods.".to_string(),
+                    );
+                }
             },
             Expr::Tuple(exprs) => {
                 for expr in exprs {
@@ -203,7 +220,10 @@ impl<'a> Resolver<'a> {
             Expr::Variable(variable) => {
                 if let Some(false) = self.get(&variable.lexeme) {
                     // Since declared but not defined, must be in variable initializer
-                    self.error_handler.token_error(variable.clone(), "Cannot use a variable in its own initializer.".to_string());
+                    self.error_handler.token_error(
+                        variable.clone(),
+                        "Cannot use a variable in its own initializer.".to_string(),
+                    );
                 } else {
                     self.resolve_local(variable, &variable.lexeme);
                 }
@@ -211,9 +231,9 @@ impl<'a> Resolver<'a> {
         }
     }
 
-    fn visit_function(&mut self, params: &Vec<Token>, body: &'a Stmt) {
+    fn visit_function(&mut self, params: &Vec<Token>, body: &'a Stmt, function_type: FunctionType) {
         let enclosing_function = self.current_function;
-        self.current_function = FunctionType::Function;
+        self.current_function = function_type;
 
         self.begin_scope();
 

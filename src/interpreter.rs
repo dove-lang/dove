@@ -75,6 +75,13 @@ impl Interpreter {
         self.locals.get(&(variable.line, variable.lexeme.clone()))
     }
 
+    fn lookup_variable(&self, variable: &Token) -> Option<Literals> {
+        match self.get_local(variable) {
+            Some(distance) => self.environment.borrow().get_at(*distance, &variable.lexeme),
+            None => self.globals.borrow().get(&variable.lexeme),
+        }.ok()
+    }
+
     fn check_number_operand(&mut self, operator: &Token, left: &Literals, right: &Literals) -> Result<(), ()> {
         match left {
             Literals::Number(_) => { match right {
@@ -117,8 +124,8 @@ impl ExprVisitor for Interpreter {
                 let val = self.evaluate(value)?;
 
                 let res = match self.get_local(name) {
-                    Some(distance) => self.environment.borrow_mut().assign_at(*distance, name.clone(), val.clone()),
-                    None => self.globals.borrow_mut().assign(name.clone(), val.clone()),
+                    Some(distance) => self.environment.borrow_mut().assign_at(*distance, name.lexeme.clone(), val.clone()),
+                    None => self.globals.borrow_mut().assign(name.lexeme.clone(), val.clone()),
                 };
 
                 match res {
@@ -262,15 +269,15 @@ impl ExprVisitor for Interpreter {
                         let instance = DoveInstance::new(Rc::clone(&class));
                         Ok(Literals::Instance(Rc::new(RefCell::new(instance))))
                     },
-                    callee_val => {
-                        // Try to convert the evaluated callee literal to a DoveFunction object.
-                        let mut function = match callee_val.to_function_object(){
-                            Ok(f) => f,
-                            Err(()) => {
-                                self.report_err(paren.clone(), format!("Type '{}' is not callable.", callee_type));
-                                return Err(());
-                            }
-                        };
+                    Literals::Function(function) => {
+                        // // Try to convert the evaluated callee literal to a DoveFunction object.
+                        // let mut function = match callee_val.to_function_object(){
+                        //     Ok(f) => f,
+                        //     Err(()) => {
+                        //         self.report_err(paren.clone(), format!("Type '{}' is not callable.", callee_type));
+                        //         return Err(());
+                        //     }
+                        // };
 
                         // Check arity.
                         if argument_vals.len() != function.arity() {
@@ -281,6 +288,7 @@ impl ExprVisitor for Interpreter {
 
                         Ok(function.call(self, &argument_vals))
                     },
+                    _ => panic!("Type '{}' is not callable.", callee_type),
                 }
             },
 
@@ -322,7 +330,7 @@ impl ExprVisitor for Interpreter {
 
                 match expr {
                     Literals::Instance(instance) => {
-                        match instance.borrow().get(&name.lexeme) {
+                        match DoveInstance::get(instance, &name.lexeme) {
                             Some(value) => Ok(value.clone()),
                             None => {
                                 self.error_handler.report(
@@ -394,8 +402,18 @@ impl ExprVisitor for Interpreter {
             }
 
             // TODO: Implement visit Self expression.
-            Expr::SelfExpr(keyword) => {
-                Ok(Literals::Nil)
+            Expr::SelfExpr(token) => {
+                if let Some(instance) = self.lookup_variable(token) {
+                    Ok(instance)
+                } else {
+                    self.error_handler.report(
+                        token.line,
+                        "".to_string(),
+                        "Cannot find 'self' in the scope.".to_string(),
+                    );
+
+                    Err(())
+                }
             }
 
             // TODO: Implement visit Super expression.
@@ -434,17 +452,11 @@ impl ExprVisitor for Interpreter {
             },
 
             Expr::Variable(name) => {
-                let res = match self.get_local(name) {
-                    Some(distance) => self.environment.borrow().get_at(*distance, name),
-                    None => self.globals.borrow().get(name),
-                };
-
-                match res {
-                    Ok(literal) => Ok(literal),
-                    Err(_) => {
-                        self.report_err(name.clone(), format!("Variable '{}' not found in scope.", name.lexeme));
-                        Err(())
-                    }
+                if let Some(value) = self.lookup_variable(name) {
+                    Ok(value)
+                } else {
+                    self.report_err(name.clone(), format!("Variable '{}' not found in scope.", name.lexeme));
+                    Err(())
                 }
             },
         }
@@ -468,11 +480,23 @@ impl StmtVisitor for Interpreter {
             Stmt::Continue(_) => {Ok(())},
 
             Stmt::Class(name, superclass, methods) => {
-                let class = Rc::new(DoveClass::new(name.lexeme.clone()));
+                let mut methods_map = HashMap::new();
+
+                for method in methods {
+                    let name = match method {
+                        Stmt::Function(name, _, _) => name,
+                        _ => panic!("Class contains non-method statements."),
+                    };
+
+                    let function = Rc::new(DoveFunction::new(method.clone(), Rc::clone(&self.environment)));
+                    methods_map.insert(name.lexeme.clone(), function);
+                }
+
+                let class = Rc::new(DoveClass::new(name.lexeme.clone(), methods_map));
 
                 // TODO: define methods, superclasses, etc.
 
-                self.environment.borrow_mut().define(name.clone(), Literals::Class(class));
+                self.environment.borrow_mut().define(name.lexeme.clone(), Literals::Class(class));
 
                 Ok(())
             },
@@ -500,8 +524,9 @@ impl StmtVisitor for Interpreter {
 
             Stmt::Function(name, params, body) => {
                 // Convert DoveFunction to Function Literal.
-                let function_literal = Literals::Function(Box::new(stmt.clone()), self.environment.clone());
-                self.environment.borrow_mut().define(name.clone(), function_literal);
+                let function = DoveFunction::new(stmt.clone(), self.environment.clone());
+                let function_literal = Literals::Function(Rc::new(function));
+                self.environment.borrow_mut().define(name.lexeme.clone(), function_literal);
                 Ok(())
             },
 
@@ -532,7 +557,7 @@ impl StmtVisitor for Interpreter {
                     },
                     None => Literals::Nil,
                 };
-                self.environment.borrow_mut().define(name.clone(), val);
+                self.environment.borrow_mut().define(name.lexeme.clone(), val);
                 Ok(())
             },
 
@@ -662,9 +687,9 @@ fn stringify(literal: Literals) -> String {
         Literals::Number(n) => n.to_string(),
         Literals::Boolean(b) => b.to_string(),
         Literals::Nil => "nil".to_string(),
-        Literals::Function(decla, _) => {
-            let func_name = match *decla {
-                Stmt::Function(name_token, _, _) => name_token.lexeme,
+        Literals::Function(function) => {
+            let func_name = match &function.declaration {
+                Stmt::Function(name_token, _, _) => &name_token.lexeme,
                 _ => { panic!("Magically found non-function decalation wrapped inside Literals::Function."); }
             };
             format!("<fun {}>", func_name)

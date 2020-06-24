@@ -1,22 +1,28 @@
 class Person {
+    fun say_hi() {
+        print "hi " + self.name
+
+        let count = 0
+
+        fun say_hi_count() {
+            count = count + 1
+            print "hi " + self.name
+            print count
+        }
+
+        return say_hi_count
+    }
+
+    fun get_self() {
+        return self
+    }
 }
 
 let person = Person()
-// Error
-print person.name
-
 person.name = "Hmm"
-print person.name
 
-print person.age = 69
+let count = person.say_hi()
+count()
+count()
 
-let str = "string"
-// Error
-print str.property
-str.property = 1
-
-let person2 = person
-print person2.name
-
-person2.name = "Changed"
-print person2.name == person.name
+print person.get_self().get_self().get_self().name
