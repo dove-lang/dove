@@ -402,7 +402,9 @@ impl Parser {
     fn multiplication(&mut self) -> Result<Expr> {
         let mut left = self.unary()?;
 
-        while let Some(op) = self.match_token(&[TokenType::STAR, TokenType::SLASH, TokenType::SLASH_LESS, TokenType::SLASH_GREATER]) {
+        while let Some(op) = self.match_token(&[TokenType::STAR,
+                                                                   TokenType::SLASH, TokenType::SLASH_LESS, TokenType::SLASH_GREATER,
+                                                                   TokenType::PERCENT]) {
             let right = self.unary()?;
             left = Expr::Binary(Box::new(left), op, Box::new(right));
         }

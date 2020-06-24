@@ -56,6 +56,7 @@ impl Scanner {
             ',' => { self.add_token(TokenType::COMMA, None); }
             ':' => { self.add_token(TokenType::COLON, None); }
             '-' => { self.add_token(TokenType::MINUS, None); }
+            '%' => { self.add_token(TokenType::PERCENT, None); }
             '+' => { self.add_token(TokenType::PLUS, None); }
             '*' => { self.add_token(TokenType::STAR, None); }
             // May be one or two characters.
