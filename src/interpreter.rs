@@ -9,6 +9,17 @@ use crate::dove_callable::*;
 use crate::dove_class::{DoveClass, DoveInstance};
 use crate::environment::Environment;
 
+/// An enum indicating that execution was interrupted, for some reason.
+#[derive(Debug, Clone)]
+pub enum Interrupt {
+    Break,
+    Continue,
+    Return(Literals),
+    Error, // TODO: add error object
+}
+
+type Result<T> = std::result::Result<T, Interrupt>;
+
 pub struct Interpreter {
     pub globals: Rc<RefCell<Environment>>,
     environment: Rc<RefCell<Environment>>,
@@ -32,30 +43,30 @@ impl Interpreter {
         for stmt in stmts.iter() {
             // As this function should only be used by Dove struct,
             // no return value should be expected.
-            self.execute(stmt).unwrap_or_else(|return_val| {
-                e_red_ln!("Unexpected return value: {}", return_val.to_string());
+            self.execute(stmt).unwrap_or_else(|interrupt| {
+                e_red_ln!("Unexpected interrupt: {:?}", interrupt);
             });
         }
     }
 
-    fn evaluate(&mut self, expr: &Expr) -> Result<Literals, ()> {
+    fn evaluate(&mut self, expr: &Expr) -> Result<Literals> {
         self.visit_expr(expr)
     }
 
-    pub fn execute(&mut self, stmt: &Stmt) -> Result<(), Literals> {
+    pub fn execute(&mut self, stmt: &Stmt) -> Result<()> {
         self.visit_stmt(stmt)
     }
 
-    pub fn execute_block(&mut self, statements: &Vec<Stmt>, environment: Environment) -> Result<(), Literals> {
+    pub fn execute_block(&mut self, statements: &Vec<Stmt>, environment: Environment) -> Result<()> {
         let previous = std::mem::replace(&mut self.environment, Rc::new(RefCell::new(environment)));
 
         for stmt in statements.iter() {
             match self.execute(stmt) {
                 Ok(_) => {},
-                Err(return_val) => {
+                Err(err) => {
                     self.environment = previous;
-                    return Err(return_val);
-                }
+                    return Err(err);
+                },
             }
         }
 
@@ -82,19 +93,13 @@ impl Interpreter {
         }
     }
 
-    fn check_number_operand(&mut self, operator: &Token, left: &Literals, right: &Literals) -> Result<(), ()> {
-        match left {
-            Literals::Number(_) => { match right {
-                Literals::Number(_) => Ok(()),
-                _ => {
-                    self.report_err(operator.clone(), format!("Operands of '{}' must be two numbers.", operator.lexeme));
-                    Err(())
-                }
-            }},
+    fn check_number_operand(&mut self, operator: &Token, left: &Literals, right: &Literals) -> Result<()> {
+        match (left, right) {
+            (Literals::Number(_), Literals::Number(_)) => Ok(()),
             _ => {
                 self.report_err(operator.clone(), format!("Operands of '{}' must be two numbers.", operator.lexeme));
-                Err(())
-            }
+                Err(Interrupt::Error)
+            },
         }
     }
 
@@ -105,17 +110,14 @@ impl Interpreter {
 }
 
 impl ExprVisitor for Interpreter {
-    type Result = Literals;
+    type Result = Result<Literals>;
 
-    fn visit_expr(&mut self, expr: &Expr) -> Result<Self::Result, ()> {
+    fn visit_expr(&mut self, expr: &Expr) -> Result<Literals> {
         match expr {
             Expr::Array(expressions) => {
                 let mut arr_vals = Vec::new();
                 for expr in expressions {
-                    arr_vals.push(match self.evaluate(expr) {
-                        Ok(v) => v,
-                        Err(_) => { break; }
-                    });
+                    arr_vals.push(self.evaluate(expr)?);
                 }
                 Ok(Literals::Array(Rc::new(RefCell::new(arr_vals))))
             },
@@ -158,19 +160,13 @@ impl ExprVisitor for Interpreter {
                     Ok(val)
                 } else {
                     self.report_err(name.clone(), format!("Cannot assign value to '{}', as it is not found in scope.", name.lexeme));
-                    Err(())
+                    Err(Interrupt::Error)
                 }
             },
 
             Expr::Binary(left, operator, right) => {
-                let left_val  = match self.evaluate(left) {
-                    Ok(v) => v,
-                    Err(()) => return Err(()),
-                };
-                let right_val = match self.evaluate(right) {
-                    Ok(v) => v,
-                    Err(()) => return Err(()),
-                };
+                let left_val = self.evaluate(left)?;
+                let right_val = self.evaluate(right)?;
 
                 match operator.token_type {
                     TokenType::AND => Ok(Literals::Boolean(is_truthy(&left_val) && is_truthy(&right_val))),
@@ -178,25 +174,25 @@ impl ExprVisitor for Interpreter {
                     TokenType::GREATER => {
                         match self.check_number_operand(operator, &left_val, &right_val) {
                             Ok(_) => Ok(Literals::Boolean(left_val.unwrap_number().unwrap() > right_val.unwrap_number().unwrap())),
-                            Err(_) => Err(())
+                            Err(_) => Err(Interrupt::Error)
                         }
                     },
                     TokenType::GREATER_EQUAL => {
                         match self.check_number_operand(operator, &left_val, &right_val) {
                             Ok(_) => Ok(Literals::Boolean(left_val.unwrap_number().unwrap() >= right_val.unwrap_number().unwrap())),
-                            Err(_) => Err(())
+                            Err(_) => Err(Interrupt::Error)
                         }
                     },
                     TokenType::LESS => {
                         match self.check_number_operand(operator, &left_val, &right_val) {
                             Ok(_) => Ok(Literals::Boolean(left_val.unwrap_number().unwrap() < right_val.unwrap_number().unwrap())),
-                            Err(_) => Err(())
+                            Err(_) => Err(Interrupt::Error)
                         }
                     },
                     TokenType::LESS_EQUAL => {
                         match self.check_number_operand(operator, &left_val, &right_val) {
                             Ok(_) => Ok(Literals::Boolean(left_val.unwrap_number().unwrap() <= right_val.unwrap_number().unwrap())),
-                            Err(_) => Err(())
+                            Err(_) => Err(Interrupt::Error)
                         }
                     },
                     TokenType::BANG_EQUAL => Ok(Literals::Boolean(!is_equal(&left_val, &right_val))),
@@ -204,56 +200,42 @@ impl ExprVisitor for Interpreter {
                     TokenType::MINUS => {
                         match self.check_number_operand(operator, &left_val, &right_val) {
                             Ok(_) => Ok(Literals::Number(left_val.unwrap_number().unwrap() - right_val.unwrap_number().unwrap())),
-                            Err(_) => Err(())
+                            Err(_) => Err(Interrupt::Error)
                         }
                     },
                     TokenType::PERCENT => {
                         match self.check_number_operand(operator, &left_val, &right_val) {
                             Ok(_) => Ok(Literals::Number(left_val.unwrap_number().unwrap() % right_val.unwrap_number().unwrap())),
-                            Err(_) => Err(())
+                            Err(_) => Err(Interrupt::Error)
                         }
                     }
                     TokenType::PLUS => {
-                        match left_val {
-                            Literals::Number(l) => { match right_val {
-                                Literals::Number(r) => Ok(Literals::Number(l + r)),
-                                _ => {
-                                    self.report_err(operator.clone(),
-                                                    format!("Operands of '{}' must be two numbers or two strings.", operator.lexeme));
-                                    Err(())
-                                }
-                            }},
-                            Literals::String(l) => { match right_val {
-                                Literals::String(r) => Ok(Literals::String(format!("{}{}", l, r))),
-                                _ => {
-                                    self.report_err(operator.clone(),
-                                                    format!("Operands of '{}' must be two numbers or two strings.", operator.lexeme));
-                                    Err(())
-                                }
-                            }},
+                        match (left_val, right_val) {
+                            (Literals::Number(l), Literals::Number(r)) => Ok(Literals::Number(l + r)),
+                            (Literals::String(l), Literals::String(r)) => Ok(Literals::String(format!("{}{}", l, r))),
                             _ => {
                                 self.report_err(operator.clone(),
                                                 format!("Operands of '{}' must be two numbers or two strings.", operator.lexeme));
-                                Err(())
+                                Err(Interrupt::Error)
                             },
                         }
                     },
                     TokenType::SLASH => {
                         match self.check_number_operand(operator, &left_val, &right_val) {
                             Ok(_) => Ok(Literals::Number(left_val.unwrap_number().unwrap() / right_val.unwrap_number().unwrap())),
-                            Err(_) => Err(())
+                            Err(_) => Err(Interrupt::Error)
                         }
                     },
                     TokenType::SLASH_GREATER => {
                         match self.check_number_operand(operator, &left_val, &right_val) {
                             Ok(_) => Ok(Literals::Number((left_val.unwrap_number().unwrap() / right_val.unwrap_number().unwrap()).ceil())),
-                            Err(_) => Err(())
+                            Err(_) => Err(Interrupt::Error)
                         }
                     },
                     TokenType::SLASH_LESS => {
                         match self.check_number_operand(operator, &left_val, &right_val) {
                             Ok(_) => Ok(Literals::Number((left_val.unwrap_number().unwrap() / right_val.unwrap_number().unwrap()).floor())),
-                            Err(_) => Err(())
+                            Err(_) => Err(Interrupt::Error)
                         }
                     },
                     TokenType::STAR => {
@@ -264,7 +246,7 @@ impl ExprVisitor for Interpreter {
                                 _ => {
                                     self.report_err(operator.clone(),
                                                     format!("Operands of '{}' must be two numbers or a string and a number.", operator.lexeme));
-                                    Err(())
+                                    Err(Interrupt::Error)
                                 }
                             }},
                             Literals::String(l) => { match right_val {
@@ -272,20 +254,20 @@ impl ExprVisitor for Interpreter {
                                 _ => {
                                     self.report_err(operator.clone(),
                                                     format!("Operands of '{}' must be two numbers or a string and a number.", operator.lexeme));
-                                    Err(())
+                                    Err(Interrupt::Error)
                                 }
                             }},
                             _ => {
                                 self.report_err(operator.clone(),
                                                 format!("Operands of '{}' must be two numbers or a string and a number.", operator.lexeme));
-                                Err(())
+                                Err(Interrupt::Error)
                             }
                         }
                     },
                     _ => {
                         self.report_err(operator.clone(),
                                         format!("Unsupported operator: '{}'.", operator.lexeme));
-                        Err(())
+                        Err(Interrupt::Error)
                     }
                 }
             },
@@ -315,7 +297,7 @@ impl ExprVisitor for Interpreter {
                                     format!("Expected {} arguments but got {}.",
                                     bound_init.arity(), argument_vals.len())
                                 );
-                                return Err(());
+                                return Err(Interrupt::Error);
                             }
 
                             bound_init.call(self, &argument_vals);
@@ -328,7 +310,7 @@ impl ExprVisitor for Interpreter {
                         if argument_vals.len() != function.arity() {
                             self.report_err(paren.clone(), format!("Expected {} arguments but got {}",
                                                                 function.arity(), argument_vals.len()));
-                            return Err(());
+                            return Err(Interrupt::Error);
                         }
 
                         Ok(function.call(self, &argument_vals))
@@ -362,13 +344,13 @@ impl ExprVisitor for Interpreter {
                             // Check if integer.
                             if key.fract() != 0.0 {
                                 e_red_ln!("Only String and Integer can be used as dictionary key.");
-                                return Err(());
+                                return Err(Interrupt::Error);
                             }
                             dict_val.insert(DictKey::NumberKey(key as usize), val);
                         },
                         _ => {
                             e_red_ln!("Only String and Integer can be used as dictionary key.");
-                            return Err(());
+                            return Err(Interrupt::Error);
                         }
                     };
                 }
@@ -392,7 +374,7 @@ impl ExprVisitor for Interpreter {
                                     "".to_string(),
                                     format!("Undefined property '{}'.", name.lexeme),
                                 );
-                                Err(())
+                                Err(Interrupt::Error)
                             },
                         }
                     },
@@ -403,7 +385,7 @@ impl ExprVisitor for Interpreter {
                             "".to_string(),
                             format!("Cannot get property '{}' from a non-instance value.", name.lexeme),
                         );
-                        Err(())
+                        Err(Interrupt::Error)
                     }
                 }
             }
@@ -411,9 +393,9 @@ impl ExprVisitor for Interpreter {
             Expr::IfExpr(condition, then_branch, else_branch) => {
                 let condition_val = is_truthy(&self.evaluate(condition).unwrap());
                 if condition_val {
-                    self.execute(then_branch);
+                    self.execute(then_branch)?;
                 } else {
-                    self.execute(else_branch);
+                    self.execute(else_branch)?;
                 }
 
                 // temp code
@@ -421,14 +403,8 @@ impl ExprVisitor for Interpreter {
             },
 
             Expr::IndexGet(value, index) => {
-                let evaluated_value = match self.evaluate(value) {
-                    Ok(v) => v,
-                    Err(_) => { return Err(()); }
-                };
-                let evaluated_index = match self.evaluate(index) {
-                    Ok(v) => v,
-                    Err(_) => { return Err(()); }
-                };
+                let evaluated_value = self.evaluate(value)?;
+                let evaluated_index = self.evaluate(index)?;
 
                 match evaluated_value {
                     Literals::Array(arr) => {
@@ -437,12 +413,12 @@ impl ExprVisitor for Interpreter {
                                 Some(v) => Ok(v.clone()),
                                 None => {
                                     e_red_ln!("Index '{}' out of range.", n);
-                                    Err(())
+                                    Err(Interrupt::Error)
                                 }
                             },
                             Err(_) => {
                                 e_red_ln!("Index must be an integer.");
-                                Err(())
+                                Err(Interrupt::Error)
                             }
                         }
                     },
@@ -452,12 +428,12 @@ impl ExprVisitor for Interpreter {
                                 Some(v) => Ok(v.clone()),
                                 None => {
                                     e_red_ln!("Index '{}' out of range.", n);
-                                    Err(())
+                                    Err(Interrupt::Error)
                                 }
                             },
                             Err(_) => {
                                 e_red_ln!("Index must be an integer.");
-                                Err(())
+                                Err(Interrupt::Error)
                             }
                         }
                     },
@@ -466,14 +442,14 @@ impl ExprVisitor for Interpreter {
                             Literals::Number(i) => {
                                 if i.fract() != 0.0 {
                                     e_red_ln!("Index must be an integer/string.");
-                                    return Err(());
+                                    return Err(Interrupt::Error);
                                 }
                                 let i = i as usize;
                                 match dict.borrow().get(&DictKey::NumberKey(i)) {
                                     Some(v) => Ok(v.clone()),
                                     None => {
                                         e_red_ln!("Key '{}' not found.", i);
-                                        Err(())
+                                        Err(Interrupt::Error)
                                     }
                                 }
                             },
@@ -482,36 +458,27 @@ impl ExprVisitor for Interpreter {
                                     Some(v) => Ok(v.clone()),
                                     None => {
                                         e_red_ln!("Key '{}' not found.", s);
-                                        Err(())
+                                        Err(Interrupt::Error)
                                     }
                                 }
                             },
                             _ => {
                                 e_red_ln!("Index must be an integer/string.");
-                                Err(())
+                                Err(Interrupt::Error)
                             }
                         }
                     },
                     _ => {
                         e_red_ln!("Cannot get value by index/key from '{}'.", evaluated_value.to_string());
-                        Err(())
+                        Err(Interrupt::Error)
                     }
                 }
             }
 
             Expr::IndexSet(expr, index, value) => {
-                let evaluated_expr = match self.evaluate(expr) {
-                    Ok(v) => v,
-                    Err(_) => { return Err(()); }
-                };
-                let evaluated_index = match self.evaluate(index) {
-                    Ok(v) => v,
-                    Err(_) => { return Err(()); }
-                };
-                let evaluated_value = match self.evaluate(value) {
-                    Ok(v) => v,
-                    Err(_) => { return Err(()); }
-                };
+                let evaluated_expr = self.evaluate(expr)?;
+                let evaluated_index = self.evaluate(index)?;
+                let evaluated_value = self.evaluate(value)?;
 
                 match evaluated_expr {
                     Literals::Array(arr) => {
@@ -521,16 +488,16 @@ impl ExprVisitor for Interpreter {
                                     Some(v) => v.clone(),
                                     None => {
                                         e_red_ln!("Index '{}' out of range.", n);
-                                        return Err(());
+                                        return Err(Interrupt::Error);
                                     },
                                 };
-                                // Index must exist, otherwise already returned Err(()).
+                                // Index must exist, otherwise already returned Err(Interrupt::Error).
                                 arr.borrow_mut()[n] = evaluated_value;
                                 Ok(old_val)
                             },
                             Err(_) => {
                                 e_red_ln!("Index must be an integer.");
-                                Err(())
+                                Err(Interrupt::Error)
                             }
                         }
                     },
@@ -539,7 +506,7 @@ impl ExprVisitor for Interpreter {
                             Literals::Number(i) => {
                                 if i.fract() != 0.0 {
                                     e_red_ln!("Index must be an integer/string.");
-                                    return Err(());
+                                    return Err(Interrupt::Error);
                                 }
                                 let i = i as usize;
                                 let old_val = match dict.borrow().get(&DictKey::NumberKey(i)) {
@@ -559,13 +526,13 @@ impl ExprVisitor for Interpreter {
                             },
                             _ => {
                                 e_red_ln!("Index must be an integer/string.");
-                                Err(())
+                                Err(Interrupt::Error)
                             }
                         }
                     }
                     _ => {
                         e_red_ln!("Cannot set value by index/key for '{}'.", evaluated_value.to_string());
-                        Err(())
+                        Err(Interrupt::Error)
                     }
                 }
             }
@@ -594,7 +561,7 @@ impl ExprVisitor for Interpreter {
                             "".to_string(),
                             format!("Cannot set property '{}' of a non-instance value.", name.lexeme),
                         );
-                        Err(())
+                        Err(Interrupt::Error)
                     }
                 }
             }
@@ -609,7 +576,7 @@ impl ExprVisitor for Interpreter {
                         "Cannot find 'self' in the scope.".to_string(),
                     );
 
-                    Err(())
+                    Err(Interrupt::Error)
                 }
             }
 
@@ -622,7 +589,7 @@ impl ExprVisitor for Interpreter {
                             method.clone(),
                             "Cannot resolve 'super' in this scope.".to_string(),
                         );
-                        return Err(());
+                        return Err(Interrupt::Error);
                     },
                 };
 
@@ -634,7 +601,7 @@ impl ExprVisitor for Interpreter {
                             method.clone(),
                             "Cannot find superclass.".to_string(),
                         );
-                        return Err(());
+                        return Err(Interrupt::Error);
                     },
                 };
 
@@ -645,7 +612,7 @@ impl ExprVisitor for Interpreter {
                             method.clone(),
                             format!("Cannot find method '{}' from class '{}'", method.lexeme, class.name),
                         );
-                        return Err(());
+                        return Err(Interrupt::Error);
                     },
                 };
 
@@ -660,7 +627,7 @@ impl ExprVisitor for Interpreter {
                             token.clone(),
                             format!("Cannot find 'self' in the scope."),
                         );
-                        return Err(());
+                        return Err(Interrupt::Error);
                     },
                 };
 
@@ -688,12 +655,12 @@ impl ExprVisitor for Interpreter {
                         Literals::Number(n) => Ok(Literals::Number(-n)),
                         _ => {
                             self.report_err(operator.clone(), format!("Operand of '{}' must be a number.", operator.lexeme));
-                            Err(())
+                            Err(Interrupt::Error)
                         }
                     }},
                     _ => {
                         self.report_err(operator.clone(), format!("Operand of '{}' must be a number.", operator.lexeme));
-                        Err(())
+                        Err(Interrupt::Error)
                     }
                 }
             },
@@ -703,7 +670,7 @@ impl ExprVisitor for Interpreter {
                     Ok(value)
                 } else {
                     self.report_err(name.clone(), format!("Variable '{}' not found in scope.", name.lexeme));
-                    Err(())
+                    Err(Interrupt::Error)
                 }
             },
         }
@@ -712,20 +679,20 @@ impl ExprVisitor for Interpreter {
 
 
 impl StmtVisitor for Interpreter {
-    type Result = Literals;
+    type Result = Result<()>;
 
-    fn visit_stmt(&mut self, stmt: &Stmt) -> Result<(), Self::Result> {
+    fn visit_stmt(&mut self, stmt: &Stmt) -> Result<()> {
         match stmt {
             Stmt::Block(statements) => {
                 self.execute_block(statements, Environment::new(Some(self.environment.clone())))
             },
 
             Stmt::Break(_) => {
-                Err(Literals::Break)
+                Err(Interrupt::Break)
             },
 
             Stmt::Continue(_) => {
-                Err(Literals::Continue)
+                Err(Interrupt::Continue)
             },
 
             Stmt::Class(name, superclass_name, methods) => {
@@ -743,7 +710,7 @@ impl StmtVisitor for Interpreter {
                             format!("Cannot find the class named '{}'.", superclass_name.lexeme),
                         );
                         // TODO: add better error handling
-                        return Ok(());
+                        return Err(Interrupt::Error);
                     }
                 }
 
@@ -777,48 +744,51 @@ impl StmtVisitor for Interpreter {
             },
 
             Stmt::Expression(expression) => {
-                let res = self.evaluate(expression);
-                match res {
-                    Ok(_) => { Ok(()) },
-                    Err(_) => { Ok(()) }
-                }
+                self.evaluate(expression)?;
+                Ok(())
             },
 
             // TODO: Holy shit, clean this up later.
             Stmt::For(var_name, range_name, body) => {
-                let range_vals = match self.evaluate(range_name) {
-                    Ok(v) => v,
-                    Err(()) => { return Ok(()); }
-                };
-                match range_vals {
-                    Literals::Array(arr) => {
-                        for item in arr.borrow().iter() {
-                            let mut sub_env = Environment::new(Some(self.environment.clone()));
-                            sub_env.define(var_name.lexeme.clone(), item.clone());
-                            match &**body {
-                                Stmt::Block(stmts) => {
-                                    match self.execute_block(&stmts, sub_env) {
-                                        Ok(()) => {},
-                                        Err(return_val) => {
-                                            match return_val {
-                                                Literals::Break => { return Ok(()); },
-                                                Literals::Continue => {}
-                                                _ => { return Err(return_val); }
-                                            }
-                                        }
-                                    }
-                                },
-                                _ => {
-                                    self.report_err(var_name.clone(), "Expected block statement in a 'for' loop.".to_string());
-                                    return Ok(());
-                                }
-                            }
-                        }
-                    },
+                let range_vals = self.evaluate(range_name)?;
+                let arr = match range_vals {
+                    Literals::Array(arr) => arr,
                     _ => {
                         self.report_err(var_name.clone(), format!("Cannot iterate over type '{}'", range_vals.to_string()));
-                        return Ok(());
+                        return Err(Interrupt::Error);
                     }
+                };
+
+                let stmts = match &**body {
+                    Stmt::Block(stmts) => stmts,
+                    _ => {
+                        self.report_err(var_name.clone(), "Expected block statement in a 'for' loop.".to_string());
+                        return Err(Interrupt::Error);
+                    },
+                };
+
+                // Use loop with index to avoid having a reference to arr while executing `stmts`
+                let mut index = 0;
+
+                loop {
+                    let item = match arr.borrow().get(index) {
+                        Some(item) => item.clone(),
+                        None => break,
+                    };
+                    // Reference to arr is dropped here
+
+                    let mut sub_env = Environment::new(Some(self.environment.clone()));
+                    sub_env.define(var_name.lexeme.clone(), item);
+
+                    if let Err(interrupt) = self.execute_block(&stmts, sub_env) {
+                        match interrupt {
+                            Interrupt::Break => return Ok(()),
+                            Interrupt::Continue => {},
+                            _ => return Err(interrupt),
+                        }
+                    }
+
+                    index += 1;
                 }
 
                 Ok(())
@@ -833,29 +803,22 @@ impl StmtVisitor for Interpreter {
             },
 
             Stmt::Print(_, expression) => {
-                match self.evaluate(expression) {
-                    Ok(literal) => {
-                        println!("{}", stringify(literal));
-                        Ok(())
-                    },
-                    Err(_) => { Ok(()) }
-                }
+                let literal = self.evaluate(expression)?;
+                println!("{}", stringify(literal));
+                Ok(())
             },
 
             Stmt::Return(_, expression) => {
                 let value = match expression {
-                    Some(expression) => self.evaluate(expression).unwrap(),
+                    Some(expression) => self.evaluate(expression)?,
                     None => Literals::Nil,
                 };
-                Err(value)
+                Err(Interrupt::Return(value))
             },
 
             Stmt::Variable(name, initializer) => {
                 let val = match initializer {
-                    Some(i) => match self.evaluate(i) {
-                        Ok(literal) => literal,
-                        Err(()) => Literals::Nil,
-                    },
+                    Some(i) => self.evaluate(i)?,
                     None => Literals::Nil,
                 };
                 self.environment.borrow_mut().define(name.lexeme.clone(), val);
@@ -866,11 +829,11 @@ impl StmtVisitor for Interpreter {
                 while is_truthy(&self.evaluate(condition).unwrap()) {
                      match self.execute(body) {
                          Ok(_) => {},
-                         Err(return_val) => {
-                             match return_val {
-                                 Literals::Break => { return Ok(()); },
-                                 Literals::Continue => { continue; }
-                                 _ => { return Err(return_val); }
+                         Err(interrupt) => {
+                             match interrupt {
+                                 Interrupt::Break => { return Ok(()); },
+                                 Interrupt::Continue => { continue; }
+                                 _ => { return Err(interrupt); }
                              }
                          }
                      }

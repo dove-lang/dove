@@ -67,8 +67,6 @@ pub enum TokenType {
 #[derive(Debug, Clone)]
 pub enum Literals {
     Array(Rc<RefCell<Vec<Literals>>>),
-    Break,
-    Continue,
     Dictionary(Rc<RefCell<HashMap<DictKey, Literals>>>),
     String(String),
     Tuple(Box<Vec<Literals>>),
@@ -85,8 +83,6 @@ impl Literals {
     pub fn to_string(&self) -> String {
         match self {
             Literals::Array(_) => "Array".to_string(),
-            Literals::Break => "Break".to_string(),
-            Literals::Continue => "Continue".to_string(),
             Literals::Dictionary(_) => "Dictionary".to_string(),
             Literals::String(_) => "String".to_string(),
             Literals::Tuple(_) => "Tuple".to_string(),

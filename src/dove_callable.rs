@@ -1,7 +1,7 @@
 use std::rc::Rc;
 use std::cell::RefCell;
 
-use crate::interpreter::Interpreter;
+use crate::interpreter::{Interpreter, Interrupt};
 use crate::environment::Environment;
 use crate::token::Literals;
 use crate::ast::*;
@@ -56,13 +56,9 @@ impl DoveCallable for DoveFunction {
                 };
 
                 match interpreter.execute_block(statements, environment) {
-                    Ok(_) => {},
-                    Err(return_val) => {
-                        return return_val;
-                    }
+                    Err(Interrupt::Return(return_val)) => return_val,
+                    _ => Literals::Nil,
                 }
-
-                Literals::Nil
             },
             _ => { panic!("Not callable. "); }
         }
