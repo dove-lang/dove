@@ -74,6 +74,36 @@ impl Interpreter {
         Ok(())
     }
 
+    /// Execute a block and return its implicit return value.
+    pub fn execute_implicit_return(&mut self, statements: &Vec<Stmt>, environment: Environment) -> Result<Literals> {
+        // Check if last statement is an expression
+        if let Some(Stmt::Expression(expr)) = statements.last() {
+            let previous = std::mem::replace(&mut self.environment, Rc::new(RefCell::new(environment)));
+
+            // Iterate through all statements except the last
+            for stmt in statements[..statements.len() - 1].iter() {
+                match self.execute(stmt) {
+                    Ok(_) => {},
+                    Err(err) => {
+                        self.environment = previous;
+                        return Err(err);
+                    },
+                }
+            }
+
+            // Evaluate the last expression
+            let return_value = self.evaluate(expr)?;
+
+            self.environment = previous;
+            Ok(return_value)
+
+        } else {
+            // No implicit return, execute as normal and return nil
+            self.execute_block(statements, environment)?;
+            Ok(Literals::Nil)
+        }
+    }
+
     pub fn resolve(&mut self, token: &Token, depth: usize) {
         self.insert_local(token, depth);
     }
@@ -433,14 +463,22 @@ impl ExprVisitor for Interpreter {
 
             Expr::IfExpr(condition, then_branch, else_branch) => {
                 let condition_val = is_truthy(&self.evaluate(condition).unwrap());
-                if condition_val {
-                    self.execute(then_branch)?;
-                } else {
-                    self.execute(else_branch)?;
-                }
 
-                // temp code
-                Ok(Literals::Nil)
+                let branch = if condition_val {
+                    then_branch
+                } else {
+                    else_branch
+                };
+
+                let statements = match branch.as_ref() {
+                    Stmt::Block(statements) => statements,
+                    _ => panic!("If statement has a non-block branch"),
+                };
+
+                let env = Environment::new(Some(self.environment.clone()));
+                let value = self.execute_implicit_return(statements, env)?;
+
+                Ok(value)
             },
 
             Expr::IndexGet(value, index) => {
