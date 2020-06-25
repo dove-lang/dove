@@ -9,6 +9,15 @@ use crate::error_handler::CompiletimeErrorHandler;
 enum FunctionType {
     None,
     Function,
+    Method,
+    Initializer,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+enum ClassType {
+    None,
+    Class,
+    Subclass,
 }
 
 pub struct Resolver<'a> {
@@ -16,7 +25,7 @@ pub struct Resolver<'a> {
     interpreter: &'a mut Interpreter,
     error_handler: CompiletimeErrorHandler,
     current_function: FunctionType,
-    // TODO: should set in_loop to false when enter function?
+    current_class: ClassType,
     in_loop: bool,
 }
 
@@ -27,6 +36,7 @@ impl<'a> Resolver<'a> {
             interpreter,
             error_handler: CompiletimeErrorHandler::new(),
             current_function: FunctionType::None,
+            current_class: ClassType::None,
             in_loop: false,
         }
     }
@@ -55,7 +65,57 @@ impl<'a> Resolver<'a> {
                 }
             },
             Stmt::Class(name, superclass, methods) => {
-                // TODO: after finishing class
+                self.declare(name);
+                self.define(name);
+
+                if let Some(superclass) = superclass {
+                    self.resolve_local(superclass, &superclass.lexeme);
+
+                    if superclass.lexeme == name.lexeme {
+                        self.error_handler.token_error(
+                            superclass.clone(),
+                            "A class cannot inherit from itself.".to_string(),
+                        );
+                    }
+
+                    // Begin scope to bind super
+                    self.begin_scope();
+                    self.scopes.last_mut().unwrap().insert("super".to_string(), true);
+                }
+
+                self.begin_scope();
+                self.scopes.last_mut().unwrap().insert("self".to_string(), true);
+
+                // Set class type
+                let prev_class = self.current_class;
+                self.current_class = if superclass.is_some() {
+                    ClassType::Subclass
+                } else {
+                    ClassType::Class
+                };
+
+                for method in methods {
+                    match method {
+                        Stmt::Function(name, params, body) => self.visit_function(
+                            params,
+                            body,
+                            if name.lexeme == "init"{
+                                FunctionType::Initializer
+                            } else {
+                                FunctionType::Method
+                            }),
+                        _ => panic!("Class methods contain non-function statements."),
+                    }
+                }
+
+                if superclass.is_some() {
+                    // End scope that binds super
+                    self.end_scope();
+                }
+
+                self.current_class = prev_class;
+
+                self.end_scope();
             },
             Stmt::Continue(token) => {
                 if !self.in_loop {
@@ -88,9 +148,9 @@ impl<'a> Resolver<'a> {
                 self.declare(name);
                 self.define(name);
 
-                self.visit_function(params, body)
+                self.visit_function(params, body, FunctionType::Function)
             },
-            Stmt::Print(token, expr) => {
+            Stmt::Print(_, expr) => {
                 self.visit_expr(expr);
             },
             Stmt::Return(token, expr) => {
@@ -102,6 +162,13 @@ impl<'a> Resolver<'a> {
                 }
 
                 if let Some(expr) = expr {
+                    if self.current_function == FunctionType::Initializer {
+                        self.error_handler.token_error(
+                            token.clone(),
+                            "Cannot return a value from an initializer.".to_string(),
+                        );
+                    }
+
                     self.visit_expr(expr);
                 }
             },
@@ -136,14 +203,13 @@ impl<'a> Resolver<'a> {
             },
             Expr::Assign(variable, value) => {
                 self.visit_expr(value);
-                // TODO: Check whether this exist first???
                 self.resolve_local(variable, &variable.lexeme)
             },
             Expr::Binary(expr1, _, expr2) => {
                 self.visit_expr(expr1);
                 self.visit_expr(expr2);
             },
-            Expr::Call(callee, paren, args) => {
+            Expr::Call(callee, _, args) => {
                 self.visit_expr(callee);
 
                 for arg in args {
@@ -156,9 +222,8 @@ impl<'a> Resolver<'a> {
                     self.visit_expr(value);
                 }
             },
-            Expr::Get(obj, token) => {
+            Expr::Get(obj, _) => {
                 self.visit_expr(obj);
-                // TODO: token shouldn't need to be checked?
             },
             Expr::Grouping(expr) => {
                 self.visit_expr(expr);
@@ -179,27 +244,49 @@ impl<'a> Resolver<'a> {
             },
             Expr::Literal(_) => (),
             Expr::SelfExpr(token) => {
-                // TODO: after finishing class
+                if self.current_class == ClassType::None {
+                    self.error_handler.token_error(
+                        token.clone(),
+                        "Cannot use 'self' outside of a class.".to_string(),
+                    );
+                }
+
+                self.resolve_local(&token, &token.lexeme);
             },
-            Expr::Set(obj, token, value) => {
+            Expr::Set(obj, _, value) => {
                 self.visit_expr(obj);
                 self.visit_expr(value);
             },
-            Expr::SuperExpr(token, method) => {
-                // TODO: after finishing class
+            Expr::SuperExpr(token, _) => {
+                if self.current_class == ClassType::None {
+                    self.error_handler.token_error(
+                        token.clone(),
+                        "Cannot use 'super' outside of a class.".to_string(),
+                    );
+                } else if self.current_class == ClassType::Class {
+                    self.error_handler.token_error(
+                        token.clone(),
+                        "Cannot use 'super' inside a class with no superclass.".to_string(),
+                    );
+                }
+
+                self.resolve_local(token, &token.lexeme);
             },
             Expr::Tuple(exprs) => {
                 for expr in exprs {
                     self.visit_expr(expr);
                 }
             },
-            Expr::Unary(token, expr) => {
+            Expr::Unary(_, expr) => {
                 self.visit_expr(expr);
             },
             Expr::Variable(variable) => {
                 if let Some(false) = self.get(&variable.lexeme) {
                     // Since declared but not defined, must be in variable initializer
-                    self.error_handler.token_error(variable.clone(), "Cannot use a variable in its own initializer.".to_string());
+                    self.error_handler.token_error(
+                        variable.clone(),
+                        "Cannot use a variable in its own initializer.".to_string(),
+                    );
                 } else {
                     self.resolve_local(variable, &variable.lexeme);
                 }
@@ -207,9 +294,13 @@ impl<'a> Resolver<'a> {
         }
     }
 
-    fn visit_function(&mut self, params: &Vec<Token>, body: &'a Stmt) {
+    fn visit_function(&mut self, params: &Vec<Token>, body: &'a Stmt, function_type: FunctionType) {
         let enclosing_function = self.current_function;
-        self.current_function = FunctionType::Function;
+        self.current_function = function_type;
+
+        // Set in loop to false to disallow top level break/continue in functions
+        let prev_in_loop = self.in_loop;
+        self.in_loop = false;
 
         self.begin_scope();
 
@@ -222,6 +313,7 @@ impl<'a> Resolver<'a> {
         self.resolve(unwrap_block(body));
         self.end_scope();
 
+        self.in_loop = prev_in_loop;
         self.current_function = enclosing_function;
     }
 }

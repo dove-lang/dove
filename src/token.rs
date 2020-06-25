@@ -5,6 +5,7 @@ use std::rc::Rc;
 use crate::ast::Stmt;
 use crate::dove_callable::DoveFunction;
 use crate::environment::Environment;
+use crate::dove_class::{DoveClass, DoveInstance};
 
 #[derive(Debug, Clone)]
 pub struct Token {
@@ -71,8 +72,9 @@ pub enum Literals {
     Number(f64),
     Boolean(bool),
     Nil,
-    Function(Box<Stmt>, Rc<RefCell<Environment>>),
-    Class,
+    Function(Rc<DoveFunction>),
+    Class(Rc<DoveClass>),
+    Instance(Rc<RefCell<DoveInstance>>),
 }
 
 impl Literals {
@@ -87,8 +89,9 @@ impl Literals {
             Literals::Number(_) => "Number".to_string(),
             Literals::Boolean(_) => "Boolean".to_string(),
             Literals::Nil => "Nil".to_string(),
-            Literals::Function(_, _) => "Function".to_string(),
-            Literals::Class => "Class".to_string(),
+            Literals::Function(_) => "Function".to_string(),
+            Literals::Class(_) => "Class".to_string(),
+            Literals::Instance(_) => "Instance".to_string(),
         }
     }
 
@@ -117,14 +120,6 @@ impl Literals {
         match self {
             Literals::Boolean(b) => Ok(b),
             _ => Err(())
-        }
-    }
-
-    //--- Functions used only for Callables.
-    pub fn to_function_object(self) -> Result<DoveFunction, ()> {
-        match self {
-            Literals::Function(declaration, closure) => Ok(DoveFunction::new(*declaration, closure)),
-            _ => { Err(()) }
         }
     }
 }

@@ -1,17 +1,19 @@
+use std::rc::Rc;
+use std::cell::RefCell;
+
 use crate::interpreter::Interpreter;
 use crate::environment::Environment;
 use crate::token::Literals;
 use crate::ast::*;
-use std::rc::Rc;
-use std::cell::RefCell;
-
+use crate::dove_class::DoveInstance;
 
 pub trait DoveCallable {
-    fn call(&mut self, interpreter: &mut Interpreter, argument_vals: &Vec<Literals>) -> Literals;
+    fn call(&self, interpreter: &mut Interpreter, argument_vals: &Vec<Literals>) -> Literals;
 }
 
+#[derive(Debug)]
 pub struct DoveFunction {
-    declaration: Stmt,
+    pub declaration: Stmt,
     closure: Rc<RefCell<Environment>>,
 }
 
@@ -29,16 +31,23 @@ impl DoveFunction {
             _ => { panic!("Cannot check arity. "); }
         }
     }
+
+    /// Create a new function that is enclosed by a scope containing local `self` referencing `instance`.
+    pub fn bind(&self, instance: Rc<RefCell<DoveInstance>>) -> DoveFunction {
+        let mut environment = Environment::new(Some(Rc::clone(&self.closure)));
+        environment.define("self".to_string(), Literals::Instance(instance));
+        DoveFunction::new(self.declaration.clone(), Rc::new(RefCell::new(environment)))
+    }
 }
 
 impl DoveCallable for DoveFunction {
-    fn call(&mut self, interpreter: &mut Interpreter, argument_vals: &Vec<Literals>) -> Literals {
+    fn call(&self, interpreter: &mut Interpreter, argument_vals: &Vec<Literals>) -> Literals {
         let mut environment = Environment::new(Some(self.closure.clone()));
 
         match &self.declaration {
             Stmt::Function(_, params, body) => {
                 for i in 0..params.len() {
-                    environment.define(params[i].clone(), argument_vals[i].clone());
+                    environment.define(params[i].lexeme.clone(), argument_vals[i].clone());
                 }
 
                 let statements = match body.as_ref() {

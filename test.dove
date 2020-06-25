@@ -1,8 +1,41 @@
-for i in [1, 2, 3] {
-    print i
-    {
-        break
+
+class Person {
+    fun init(name) {
+        self.name = name
     }
-    print 3
+
+    fun call_no_super() {
+        super.some_method()
+    }
+
+    fun getself() {
+        return self
+    }
 }
 
+class PersonSayHi from Person {
+    fun say_hi() {
+        print "hi, I'm " + self.name
+    }
+}
+
+class PersonSayHiTwice from PersonSayHi {
+    fun say_hi() {
+        super.say_hi()
+        super.say_hi()
+    }
+
+    fun call_something_that_does_not_exist() {
+        super.hmm()
+    }
+}
+
+let person = PersonSayHiTwice("ur dad")
+person.say_hi()
+
+person.call_something_that_does_not_exist()
+
+let person2 = Person("hmm")
+person2.call_no_super()
+
+print person.getself().getself().getself().name

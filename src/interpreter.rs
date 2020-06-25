@@ -6,6 +6,7 @@ use crate::ast::*;
 use crate::token::*;
 use crate::error_handler::*;
 use crate::dove_callable::*;
+use crate::dove_class::{DoveClass, DoveInstance};
 use crate::environment::Environment;
 
 pub struct Interpreter {
@@ -74,6 +75,13 @@ impl Interpreter {
         self.locals.get(&(variable.line, variable.lexeme.clone()))
     }
 
+    fn lookup_variable(&self, variable: &Token) -> Option<Literals> {
+        match self.get_local(variable) {
+            Some(distance) => self.environment.borrow().get_at(*distance, &variable.lexeme),
+            None => self.globals.borrow().get(&variable.lexeme),
+        }
+    }
+
     fn check_number_operand(&mut self, operator: &Token, left: &Literals, right: &Literals) -> Result<(), ()> {
         match left {
             Literals::Number(_) => { match right {
@@ -115,17 +123,16 @@ impl ExprVisitor for Interpreter {
             Expr::Assign(name, value) => {
                 let val = self.evaluate(value)?;
 
-                let res = match self.get_local(name) {
-                    Some(distance) => self.environment.borrow_mut().assign_at(*distance, name.clone(), val.clone()),
-                    None => self.globals.borrow_mut().assign(name.clone(), val.clone()),
+                let assigned = match self.get_local(name) {
+                    Some(distance) => self.environment.borrow_mut().assign_at(*distance, name.lexeme.clone(), val.clone()),
+                    None => self.globals.borrow_mut().assign(name.lexeme.clone(), val.clone()),
                 };
 
-                match res {
-                    Ok(_) => Ok(val),
-                    Err(_) => {
-                        self.report_err(name.clone(), format!("Cannot assign value to '{}', as it is not found in scope.", name.lexeme));
-                        Err(())
-                    }
+                if assigned {
+                    Ok(val)
+                } else {
+                    self.report_err(name.clone(), format!("Cannot assign value to '{}', as it is not found in scope.", name.lexeme));
+                    Err(())
                 }
             },
 
@@ -258,38 +265,59 @@ impl ExprVisitor for Interpreter {
             },
 
             Expr::Call(callee, paren, arguments) => {
-                let callee_val = match self.evaluate(callee) {
-                    Ok(v) => v,
-                    Err(_) => { return Err(()); }
-                };
+                let callee_val = self.evaluate(callee)?;
                 let callee_type = (&callee_val).to_string();
 
                 // Evaluate argument literals.
                 let mut argument_vals = Vec::new();
                 for argument in arguments.iter() {
-                    argument_vals.push(match self.evaluate(argument) {
-                        Ok(v) => v,
-                        Err(_) => { return Err(()); }
-                    });
+                    argument_vals.push(self.evaluate(argument)?);
                 }
 
-                // Try to convert the evaluated callee literal to a DoveFunction object.
-                let mut function = match callee_val.to_function_object(){
-                    Ok(f) => f,
-                    Err(()) => {
-                        self.report_err(paren.clone(), format!("Type '{}' is not callable.", callee_type));
-                        return Err(());
-                    }
-                };
+                // TODO: simplify
+                match callee_val {
+                    Literals::Class(class) => {
+                        let instance = Rc::new(RefCell::new(DoveInstance::new(Rc::clone(&class))));
 
-                // Check arity.
-                if argument_vals.len() != function.arity() {
-                    self.report_err(paren.clone(), format!("Expected {} arguments but got {}",
-                                                           function.arity(), argument_vals.len()));
-                    return Err(());
+                        if let Some(initializer) = class.find_method("init") {
+                            let bound_init = initializer.bind(Rc::clone(&instance));
+
+                            // TODO: move this somewhere else? inside function.call?
+                            if argument_vals.len() != bound_init.arity() {
+                                self.report_err(
+                                    paren.clone(),
+                                    format!("Expected {} arguments but got {}.",
+                                    bound_init.arity(), argument_vals.len())
+                                );
+                                return Err(());
+                            }
+
+                            bound_init.call(self, &argument_vals);
+                        }
+
+                        Ok(Literals::Instance(instance))
+                    },
+                    Literals::Function(function) => {
+                        // // Try to convert the evaluated callee literal to a DoveFunction object.
+                        // let mut function = match callee_val.to_function_object(){
+                        //     Ok(f) => f,
+                        //     Err(()) => {
+                        //         self.report_err(paren.clone(), format!("Type '{}' is not callable.", callee_type));
+                        //         return Err(());
+                        //     }
+                        // };
+
+                        // Check arity.
+                        if argument_vals.len() != function.arity() {
+                            self.report_err(paren.clone(), format!("Expected {} arguments but got {}",
+                                                                function.arity(), argument_vals.len()));
+                            return Err(());
+                        }
+
+                        Ok(function.call(self, &argument_vals))
+                    },
+                    _ => panic!("Type '{}' is not callable.", callee_type),
                 }
-
-                Ok(function.call(self, &argument_vals))
             },
 
             Expr::Dictionary(expressions) => {
@@ -324,9 +352,33 @@ impl ExprVisitor for Interpreter {
                 self.evaluate(expression)
             },
 
-            // TODO: Implement visit Get expression.
             Expr::Get(object, name) => {
-                Ok(Literals::Nil)
+                let expr = self.visit_expr(object)?;
+
+                match expr {
+                    Literals::Instance(instance) => {
+                        match DoveInstance::get(instance, &name.lexeme) {
+                            Some(value) => Ok(value.clone()),
+                            None => {
+                                self.error_handler.report(
+                                    name.line,
+                                    "".to_string(),
+                                    format!("Undefined property '{}'.", name.lexeme),
+                                );
+                                Err(())
+                            },
+                        }
+                    },
+                    _ => {
+                        // TODO: add properties for non-instance values? (ex. array.length)
+                        self.error_handler.report(
+                            name.line,
+                            "".to_string(),
+                            format!("Cannot get property '{}' from a non-instance value.", name.lexeme),
+                        );
+                        Err(())
+                    }
+                }
             }
 
             Expr::IfExpr(condition, then_branch, else_branch) => {
@@ -495,19 +547,93 @@ impl ExprVisitor for Interpreter {
                 Ok(value.clone())
             },
 
-            // TODO: Implement visit Set expression.
             Expr::Set(object, name, value) => {
-                Ok(Literals::Nil)
+                let expr = self.visit_expr(object)?;
+                let value = self.visit_expr(value)?;
+
+                match expr {
+                    Literals::Instance(instance) => {
+                        instance.borrow_mut().set(name.lexeme.clone(), value.clone());
+                        Ok(value.clone())
+                    },
+                    _ => {
+                        self.error_handler.report(
+                            name.line,
+                            "".to_string(),
+                            format!("Cannot set property '{}' of a non-instance value.", name.lexeme),
+                        );
+                        Err(())
+                    }
+                }
             }
 
-            // TODO: Implement visit Self expression.
-            Expr::SelfExpr(keyword) => {
-                Ok(Literals::Nil)
+            Expr::SelfExpr(token) => {
+                if let Some(instance) = self.lookup_variable(token) {
+                    Ok(instance)
+                } else {
+                    self.error_handler.report(
+                        token.line,
+                        "".to_string(),
+                        "Cannot find 'self' in the scope.".to_string(),
+                    );
+
+                    Err(())
+                }
             }
 
-            // TODO: Implement visit Super expression.
-            Expr::SuperExpr(keyword, method) => {
-                Ok(Literals::Nil)
+            Expr::SuperExpr(token, method) => {
+                // Get distance to super to be used for self later
+                let distance = match self.get_local(token) {
+                    Some(distance) => *distance,
+                    None => {
+                        self.report_err(
+                            method.clone(),
+                            "Cannot resolve 'super' in this scope.".to_string(),
+                        );
+                        return Err(());
+                    },
+                };
+
+                let maybe_class = self.environment.borrow().get_at(distance, &token.lexeme);
+                let class = match maybe_class {
+                    Some(Literals::Class(class)) => class,
+                    _ => {
+                        self.report_err(
+                            method.clone(),
+                            "Cannot find superclass.".to_string(),
+                        );
+                        return Err(());
+                    },
+                };
+
+                let method = match class.find_method(&method.lexeme) {
+                    Some(method) => method,
+                    None => {
+                        self.report_err(
+                            method.clone(),
+                            format!("Cannot find method '{}' from class '{}'", method.lexeme, class.name),
+                        );
+                        return Err(());
+                    },
+                };
+
+                // TODO: find a more "elegant" solution. If so, remember to change visit super/self in resolver
+                // TODO: consider for static methods?
+                let maybe_instance = self.environment.borrow().get_at(distance - 1, "self");
+                let instance = match maybe_instance {
+                    Some(Literals::Instance(instance)) => instance,
+                    _ => {
+                        // TODO: report better error
+                        self.report_err(
+                            token.clone(),
+                            format!("Cannot find 'self' in the scope."),
+                        );
+                        return Err(());
+                    },
+                };
+
+                let bound_method = method.bind(instance);
+                Ok(Literals::Function(Rc::new(bound_method)))
             }
 
             Expr::Tuple(expressions) => {
@@ -541,17 +667,11 @@ impl ExprVisitor for Interpreter {
             },
 
             Expr::Variable(name) => {
-                let res = match self.get_local(name) {
-                    Some(distance) => self.environment.borrow().get_at(*distance, name),
-                    None => self.globals.borrow().get(name),
-                };
-
-                match res {
-                    Ok(literal) => Ok(literal),
-                    Err(_) => {
-                        self.report_err(name.clone(), format!("Variable '{}' not found in scope.", name.lexeme));
-                        Err(())
-                    }
+                if let Some(value) = self.lookup_variable(name) {
+                    Ok(value)
+                } else {
+                    self.report_err(name.clone(), format!("Variable '{}' not found in scope.", name.lexeme));
+                    Err(())
                 }
             },
         }
@@ -576,8 +696,53 @@ impl StmtVisitor for Interpreter {
                 Err(Literals::Continue)
             },
 
-            // TODO: Implement visit Class statement.
-            Stmt::Class(name, superclass, methods) => {Ok(())},
+            Stmt::Class(name, superclass_name, methods) => {
+                let mut methods_map = HashMap::new();
+
+                let mut superclass = None;
+
+                if let Some(superclass_name) = superclass_name {
+                    if let Some(Literals::Class(class)) = self.lookup_variable(superclass_name) {
+                        superclass = Some(class);
+                    } else {
+                        self.error_handler.report(
+                            superclass_name.line,
+                            "".to_string(),
+                            format!("Cannot find the class named '{}'.", superclass_name.lexeme),
+                        );
+                        // TODO: add better error handling
+                        return Ok(());
+                    }
+                }
+
+                for method in methods {
+                    let mut environment = Rc::clone(&self.environment);
+
+                    let name = match method {
+                        Stmt::Function(name, _, _) => name,
+                        _ => panic!("Class contains non-method statements."),
+                    };
+
+                    if let Some(superclass) = &superclass {
+                        environment = Rc::new(RefCell::new(Environment::new(Some(environment))));
+                        environment.borrow_mut().define(
+                            "super".to_string(),
+                            Literals::Class(Rc::clone(superclass)),
+                        );
+                    }
+
+                    let function = Rc::new(DoveFunction::new(method.clone(), environment));
+                    methods_map.insert(name.lexeme.clone(), function);
+                }
+
+                let class = Rc::new(DoveClass::new(name.lexeme.clone(), superclass, methods_map));
+
+                // TODO: define methods, superclasses, etc.
+
+                self.environment.borrow_mut().define(name.lexeme.clone(), Literals::Class(class));
+
+                Ok(())
+            },
 
             Stmt::Expression(expression) => {
                 let res = self.evaluate(expression);
@@ -628,8 +793,9 @@ impl StmtVisitor for Interpreter {
 
             Stmt::Function(name, params, body) => {
                 // Convert DoveFunction to Function Literal.
-                let function_literal = Literals::Function(Box::new(stmt.clone()), self.environment.clone());
-                self.environment.borrow_mut().define(name.clone(), function_literal);
+                let function = DoveFunction::new(stmt.clone(), self.environment.clone());
+                let function_literal = Literals::Function(Rc::new(function));
+                self.environment.borrow_mut().define(name.lexeme.clone(), function_literal);
                 Ok(())
             },
 
@@ -659,7 +825,7 @@ impl StmtVisitor for Interpreter {
                     },
                     None => Literals::Nil,
                 };
-                self.environment.borrow_mut().define(name.clone(), val);
+                self.environment.borrow_mut().define(name.lexeme.clone(), val);
                 Ok(())
             },
 
@@ -799,9 +965,9 @@ fn stringify(literal: Literals) -> String {
         Literals::Number(n) => n.to_string(),
         Literals::Boolean(b) => b.to_string(),
         Literals::Nil => "nil".to_string(),
-        Literals::Function(decla, _) => {
-            let func_name = match *decla {
-                Stmt::Function(name_token, _, _) => name_token.lexeme,
+        Literals::Function(function) => {
+            let func_name = match &function.declaration {
+                Stmt::Function(name_token, _, _) => &name_token.lexeme,
                 _ => { panic!("Magically found non-function decalation wrapped inside Literals::Function."); }
             };
             format!("<fun {}>", func_name)
