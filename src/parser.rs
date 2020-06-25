@@ -281,7 +281,7 @@ impl Parser {
     }
 
     fn assignment(&mut self) -> Result<Expr> {
-        let expr = self.if_expr()?;
+        let expr = self.lambda()?;
 
         if self.consume(TokenType::EQUAL).is_ok() {
             // If there is equal sign, parse assignment
@@ -297,6 +297,20 @@ impl Parser {
             }
         } else {
             Ok(expr)
+        }
+    }
+
+    fn lambda(&mut self) -> Result<Expr> {
+        if self.consume(TokenType::LAMBDA).is_ok() {
+            let parameters = self.parameters()?;
+            self.consume(TokenType::MINUS_GREATER)?;
+            let stmt = self.block()?;
+
+            let res = Expr::Lambda(parameters, Box::new(stmt));
+            // println!("{:?}", &res);
+            Ok(res)
+        } else {
+            self.if_expr()
         }
     }
 

@@ -13,6 +13,7 @@ pub enum Expr {
     IfExpr     (Box<Expr>, Box<Stmt>, Box<Stmt>),
     IndexGet   (Box<Expr>, Box<Expr>),
     IndexSet   (Box<Expr>, Box<Expr>, Box<Expr>),
+    Lambda     (Vec<Token>, Box<Stmt>),
     Literal    (Literals),
     Set        (Box<Expr>, Token, Box<Expr>),
     SelfExpr   (Token),

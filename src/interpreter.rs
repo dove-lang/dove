@@ -543,6 +543,11 @@ impl ExprVisitor for Interpreter {
                 }
             }
 
+            // TODO
+            Expr::Lambda(params, body) => {
+                Ok(Literals::Nil)
+            }
+
             Expr::Literal(value) => {
                 Ok(value.clone())
             },
@@ -920,7 +925,7 @@ fn is_equal(literal_a: &Literals, literal_b: &Literals) -> bool {
             Literals::Nil => true,
             _ => false,
         }},
-        _ => panic!("Not implemented.")
+        _ => panic!("Comparison not supported.")
     }
 }
 
@@ -971,7 +976,7 @@ fn stringify(literal: Literals) -> String {
                 _ => { panic!("Magically found non-function decalation wrapped inside Literals::Function."); }
             };
             format!("<fun {}>", func_name)
-        }
+        },
         _ => panic!("Not implemented.")
     }
 }
