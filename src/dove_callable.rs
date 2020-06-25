@@ -54,7 +54,8 @@ impl DoveCallable for DoveFunction {
             _ => panic!("Function have non-block body"),
         };
 
-        match interpreter.execute_block(statements, environment) {
+        match interpreter.execute_implicit_return(statements, environment) {
+            Ok(implicit_return_val) => implicit_return_val,
             Err(Interrupt::Return(return_val)) => return_val,
             _ => Literals::Nil,
         }
