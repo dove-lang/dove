@@ -37,9 +37,10 @@ impl Token {
 pub enum TokenType {
     // Single-character tokens.
     LEFT_PAREN, RIGHT_PAREN, LEFT_BRACE, RIGHT_BRACE, LEFT_BRACKET, RIGHT_BRACKET,
-    COMMA, COLON, MINUS, NEWLINE, PLUS, SLASH, STAR,
+    COMMA, COLON, MINUS, NEWLINE, PERCENT, PLUS, STAR,
 
     // One or two character tokens.
+    SLASH, SLASH_LESS, SLASH_GREATER,
     BACKSLASH,
     BANG, BANG_EQUAL,
     EQUAL, EQUAL_EQUAL,
@@ -62,8 +63,10 @@ pub enum TokenType {
 
 #[derive(Debug, Clone)]
 pub enum Literals {
-    Array(Box<Vec<Literals>>),
-    Dictionary(Box<HashMap<DictKey, Literals>>),
+    Array(Rc<RefCell<Vec<Literals>>>),
+    Break,
+    Continue,
+    Dictionary(Rc<RefCell<HashMap<DictKey, Literals>>>),
     String(String),
     Tuple(Box<Vec<Literals>>),
     Number(f64),
@@ -78,6 +81,8 @@ impl Literals {
     pub fn to_string(&self) -> String {
         match self {
             Literals::Array(_) => "Array".to_string(),
+            Literals::Break => "Break".to_string(),
+            Literals::Continue => "Continue".to_string(),
             Literals::Dictionary(_) => "Dictionary".to_string(),
             Literals::String(_) => "String".to_string(),
             Literals::Tuple(_) => "Tuple".to_string(),
@@ -90,22 +95,31 @@ impl Literals {
         }
     }
 
-    pub fn unwrap_string(self) -> String {
+    pub fn unwrap_string(self) -> Result<String, ()> {
         match self {
-            Literals::String(s) => s,
-            _ => panic!("Cannot unwrap this literal to String.")
+            Literals::String(s) => Ok(s),
+            _ => Err(())
         }
     }
-    pub fn unwrap_number(self) -> f64 {
+    pub fn unwrap_number(self) -> Result<f64, ()> {
         match self {
-            Literals::Number(n) => n,
-            _ => panic!("Cannot unwrap this literal to Number.")
+            Literals::Number(n) => Ok(n),
+            _ =>Err(())
         }
     }
-    pub fn unwrap_boolean(self) -> bool {
+    pub fn unwrap_int(self) -> Result<usize, ()> {
+        match self.unwrap_number() {
+            Ok(n) => {
+                if n.fract() != 0.0 { return Err(()); }
+                return Ok(n as usize);
+            },
+            Err(_) => Err(())
+        }
+    }
+    pub fn unwrap_boolean(self) -> Result<bool, ()> {
         match self {
-            Literals::Boolean(b) => b,
-            _ => panic!("Cannot unwrap this literal to Boolean.")
+            Literals::Boolean(b) => Ok(b),
+            _ => Err(())
         }
     }
 }

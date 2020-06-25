@@ -117,7 +117,7 @@ impl ExprVisitor for Interpreter {
                         Err(_) => { break; }
                     });
                 }
-                Ok(Literals::Array(Box::new(arr_vals)))
+                Ok(Literals::Array(Rc::new(RefCell::new(arr_vals))))
             },
 
             Expr::Assign(name, value) => {
@@ -151,25 +151,25 @@ impl ExprVisitor for Interpreter {
                     TokenType::OR => Ok(Literals::Boolean(is_truthy(&left_val) || is_truthy(&right_val))),
                     TokenType::GREATER => {
                         match self.check_number_operand(operator, &left_val, &right_val) {
-                            Ok(_) => Ok(Literals::Boolean(left_val.unwrap_number() > right_val.unwrap_number())),
+                            Ok(_) => Ok(Literals::Boolean(left_val.unwrap_number().unwrap() > right_val.unwrap_number().unwrap())),
                             Err(_) => Err(())
                         }
                     },
                     TokenType::GREATER_EQUAL => {
                         match self.check_number_operand(operator, &left_val, &right_val) {
-                            Ok(_) => Ok(Literals::Boolean(left_val.unwrap_number() >= right_val.unwrap_number())),
+                            Ok(_) => Ok(Literals::Boolean(left_val.unwrap_number().unwrap() >= right_val.unwrap_number().unwrap())),
                             Err(_) => Err(())
                         }
                     },
                     TokenType::LESS => {
                         match self.check_number_operand(operator, &left_val, &right_val) {
-                            Ok(_) => Ok(Literals::Boolean(left_val.unwrap_number() < right_val.unwrap_number())),
+                            Ok(_) => Ok(Literals::Boolean(left_val.unwrap_number().unwrap() < right_val.unwrap_number().unwrap())),
                             Err(_) => Err(())
                         }
                     },
                     TokenType::LESS_EQUAL => {
                         match self.check_number_operand(operator, &left_val, &right_val) {
-                            Ok(_) => Ok(Literals::Boolean(left_val.unwrap_number() <= right_val.unwrap_number())),
+                            Ok(_) => Ok(Literals::Boolean(left_val.unwrap_number().unwrap() <= right_val.unwrap_number().unwrap())),
                             Err(_) => Err(())
                         }
                     },
@@ -177,10 +177,16 @@ impl ExprVisitor for Interpreter {
                     TokenType::EQUAL_EQUAL => Ok(Literals::Boolean(is_equal(&left_val, &right_val))),
                     TokenType::MINUS => {
                         match self.check_number_operand(operator, &left_val, &right_val) {
-                            Ok(_) => Ok(Literals::Number(left_val.unwrap_number() - right_val.unwrap_number())),
+                            Ok(_) => Ok(Literals::Number(left_val.unwrap_number().unwrap() - right_val.unwrap_number().unwrap())),
                             Err(_) => Err(())
                         }
                     },
+                    TokenType::PERCENT => {
+                        match self.check_number_operand(operator, &left_val, &right_val) {
+                            Ok(_) => Ok(Literals::Number(left_val.unwrap_number().unwrap() % right_val.unwrap_number().unwrap())),
+                            Err(_) => Err(())
+                        }
+                    }
                     TokenType::PLUS => {
                         match left_val {
                             Literals::Number(l) => { match right_val {
@@ -208,7 +214,19 @@ impl ExprVisitor for Interpreter {
                     },
                     TokenType::SLASH => {
                         match self.check_number_operand(operator, &left_val, &right_val) {
-                            Ok(_) => Ok(Literals::Number(left_val.unwrap_number() / right_val.unwrap_number())),
+                            Ok(_) => Ok(Literals::Number(left_val.unwrap_number().unwrap() / right_val.unwrap_number().unwrap())),
+                            Err(_) => Err(())
+                        }
+                    },
+                    TokenType::SLASH_GREATER => {
+                        match self.check_number_operand(operator, &left_val, &right_val) {
+                            Ok(_) => Ok(Literals::Number((left_val.unwrap_number().unwrap() / right_val.unwrap_number().unwrap()).ceil())),
+                            Err(_) => Err(())
+                        }
+                    },
+                    TokenType::SLASH_LESS => {
+                        match self.check_number_operand(operator, &left_val, &right_val) {
+                            Ok(_) => Ok(Literals::Number((left_val.unwrap_number().unwrap() / right_val.unwrap_number().unwrap()).floor())),
                             Err(_) => Err(())
                         }
                     },
@@ -327,7 +345,7 @@ impl ExprVisitor for Interpreter {
                         }
                     };
                 }
-                Ok(Literals::Dictionary(Box::new(dict_val)))
+                Ok(Literals::Dictionary(Rc::new(RefCell::new(dict_val))))
             },
 
             Expr::Grouping(expression) => {
@@ -375,14 +393,154 @@ impl ExprVisitor for Interpreter {
                 Ok(Literals::Nil)
             },
 
-            // TODO: Implement visit Index expression.
-
             Expr::IndexGet(value, index) => {
-                Ok(Literals::Nil)
+                let evaluated_value = match self.evaluate(value) {
+                    Ok(v) => v,
+                    Err(_) => { return Err(()); }
+                };
+                let evaluated_index = match self.evaluate(index) {
+                    Ok(v) => v,
+                    Err(_) => { return Err(()); }
+                };
+
+                match evaluated_value {
+                    Literals::Array(arr) => {
+                        match evaluated_index.unwrap_int() {
+                            Ok(n) => match arr.borrow().get(n) {
+                                Some(v) => Ok(v.clone()),
+                                None => {
+                                    e_red_ln!("Index '{}' out of range.", n);
+                                    Err(())
+                                }
+                            },
+                            Err(_) => {
+                                e_red_ln!("Index must be an integer.");
+                                Err(())
+                            }
+                        }
+                    },
+                    Literals::Tuple(tup) => {
+                        match evaluated_index.unwrap_int() {
+                            Ok(n) => match tup.get(n) {
+                                Some(v) => Ok(v.clone()),
+                                None => {
+                                    e_red_ln!("Index '{}' out of range.", n);
+                                    Err(())
+                                }
+                            },
+                            Err(_) => {
+                                e_red_ln!("Index must be an integer.");
+                                Err(())
+                            }
+                        }
+                    },
+                    Literals::Dictionary(dict) => {
+                        match evaluated_index {
+                            Literals::Number(i) => {
+                                if i.fract() != 0.0 {
+                                    e_red_ln!("Index must be an integer/string.");
+                                    return Err(());
+                                }
+                                let i = i as usize;
+                                match dict.borrow().get(&DictKey::NumberKey(i)) {
+                                    Some(v) => Ok(v.clone()),
+                                    None => {
+                                        e_red_ln!("Key '{}' not found.", i);
+                                        Err(())
+                                    }
+                                }
+                            },
+                            Literals::String(s) => {
+                                match dict.borrow().get(&DictKey::StringKey(s.clone())) {
+                                    Some(v) => Ok(v.clone()),
+                                    None => {
+                                        e_red_ln!("Key '{}' not found.", s);
+                                        Err(())
+                                    }
+                                }
+                            },
+                            _ => {
+                                e_red_ln!("Index must be an integer/string.");
+                                Err(())
+                            }
+                        }
+                    },
+                    _ => {
+                        e_red_ln!("Cannot get value by index/key from '{}'.", evaluated_value.to_string());
+                        Err(())
+                    }
+                }
             }
 
             Expr::IndexSet(expr, index, value) => {
-                Ok(Literals::Nil)
+                let evaluated_expr = match self.evaluate(expr) {
+                    Ok(v) => v,
+                    Err(_) => { return Err(()); }
+                };
+                let evaluated_index = match self.evaluate(index) {
+                    Ok(v) => v,
+                    Err(_) => { return Err(()); }
+                };
+                let evaluated_value = match self.evaluate(value) {
+                    Ok(v) => v,
+                    Err(_) => { return Err(()); }
+                };
+
+                match evaluated_expr {
+                    Literals::Array(arr) => {
+                        match evaluated_index.unwrap_int() {
+                            Ok(n) => {
+                                let old_val = match arr.borrow().get(n) {
+                                    Some(v) => v.clone(),
+                                    None => {
+                                        e_red_ln!("Index '{}' out of range.", n);
+                                        return Err(());
+                                    },
+                                };
+                                // Index must exist, otherwise already returned Err(()).
+                                arr.borrow_mut()[n] = evaluated_value;
+                                Ok(old_val)
+                            },
+                            Err(_) => {
+                                e_red_ln!("Index must be an integer.");
+                                Err(())
+                            }
+                        }
+                    },
+                    Literals::Dictionary(dict) => {
+                        match evaluated_index {
+                            Literals::Number(i) => {
+                                if i.fract() != 0.0 {
+                                    e_red_ln!("Index must be an integer/string.");
+                                    return Err(());
+                                }
+                                let i = i as usize;
+                                let old_val = match dict.borrow().get(&DictKey::NumberKey(i)) {
+                                    Some(v) => v.clone(),
+                                    None => Literals::Nil,
+                                };
+                                dict.borrow_mut().insert(DictKey::NumberKey(i), evaluated_value);
+                                Ok(old_val)
+                            },
+                            Literals::String(s) => {
+                                let old_val = match dict.borrow().get(&DictKey::StringKey(s.clone())) {
+                                    Some(v) => v.clone(),
+                                    None => Literals::Nil,
+                                };
+                                dict.borrow_mut().insert(DictKey::StringKey(s.clone()), evaluated_value);
+                                Ok(old_val)
+                            },
+                            _ => {
+                                e_red_ln!("Index must be an integer/string.");
+                                Err(())
+                            }
+                        }
+                    }
+                    _ => {
+                        e_red_ln!("Cannot set value by index/key for '{}'.", evaluated_value.to_string());
+                        Err(())
+                    }
+                }
             }
 
             Expr::Literal(value) => {
@@ -530,11 +688,13 @@ impl StmtVisitor for Interpreter {
                 self.execute_block(statements, Environment::new(Some(self.environment.clone())))
             },
 
-            // TODO: Implement visit Break statement.
-            Stmt::Break(_) => {Ok(())},
+            Stmt::Break(_) => {
+                Err(Literals::Break)
+            },
 
-            // TODO: Implement visit Continue statement.
-            Stmt::Continue(_) => {Ok(())},
+            Stmt::Continue(_) => {
+                Err(Literals::Continue)
+            },
 
             Stmt::Class(name, superclass_name, methods) => {
                 let mut methods_map = HashMap::new();
@@ -588,20 +748,46 @@ impl StmtVisitor for Interpreter {
                 let res = self.evaluate(expression);
                 match res {
                     Ok(_) => { Ok(()) },
-                    // TODO: Handle possible runtime error after add tokens to Stmt::Expression.
                     Err(_) => { Ok(()) }
                 }
             },
 
-            // TODO: Finish visit For statement.
             Stmt::For(var_name, range_name, body) => {
-                let sub_env = Environment::new(Some(self.environment.clone()));
+                let range_vals = match self.evaluate(range_name) {
+                    Ok(v) => v,
+                    Err(()) => { return Ok(()); }
+                };
+                match range_vals {
+                    Literals::Array(arr) => {
+                        for item in arr.borrow().iter() {
+                            let mut sub_env = Environment::new(Some(self.environment.clone()));
+                            sub_env.define(var_name.clone(), item.clone());
+                            match &**body {
+                                Stmt::Block(stmts) => {
+                                    match self.execute_block(&stmts, sub_env) {
+                                        Ok(()) => {},
+                                        Err(return_val) => {
+                                            match return_val {
+                                                Literals::Break => { return Ok(()); },
+                                                Literals::Continue => {}
+                                                _ => { return Err(return_val); }
+                                            }
+                                        }
+                                    }
+                                },
+                                _ => {
+                                    self.report_err(var_name.clone(), "Expected block statement in a 'for' loop.".to_string());
+                                    return Ok(());
+                                }
+                            }
+                        }
+                    },
+                    _ => {
+                        self.report_err(var_name.clone(), format!("Cannot iterate over type '{}'", range_vals.to_string()));
+                        return Ok(());
+                    }
+                }
 
-                // match range_name.token_type {
-                //     TokenType::IDENTIFIER => {
-                //     },
-                //     _ => {}
-                // }
                 Ok(())
             },
 
@@ -623,7 +809,6 @@ impl StmtVisitor for Interpreter {
                 }
             },
 
-            // TODO: Implement visit Return statement.
             Stmt::Return(_, expression) => {
                 let value = match expression {
                     Some(expression) => self.evaluate(expression).unwrap(),
@@ -649,7 +834,11 @@ impl StmtVisitor for Interpreter {
                      match self.execute(body) {
                          Ok(_) => {},
                          Err(return_val) => {
-                             return Err(return_val);
+                             match return_val {
+                                 Literals::Break => { return Ok(()); },
+                                 Literals::Continue => { continue; }
+                                 _ => { return Err(return_val); }
+                             }
                          }
                      }
                 }
@@ -673,11 +862,11 @@ fn is_equal(literal_a: &Literals, literal_b: &Literals) -> bool {
     match literal_a {
         Literals::Array(a) => { match literal_b {
             Literals::Array(other) => {
-                return if a.len() != other.len() {
+                return if a.borrow().len() != other.borrow().len() {
                     false
                 } else {
-                    for i in 0..a.len() {
-                        if !is_equal(&a[i], &other[i]) { return false; }
+                    for i in 0..a.borrow().len() {
+                        if !is_equal(&a.borrow()[i], &other.borrow()[i]) { return false; }
                     }
                     true
                 };
@@ -686,12 +875,12 @@ fn is_equal(literal_a: &Literals, literal_b: &Literals) -> bool {
         }},
         Literals::Dictionary(d) => { match literal_b {
             Literals::Dictionary(other) => {
-                return if d.len() != other.len() {
+                return if d.borrow().len() != other.borrow().len() {
                     false
                 } else {
-                    for (key, val) in d.iter() {
+                    for (key, val) in d.borrow().iter() {
                         let mut flag = true;
-                        match other.get(key) {
+                        match other.borrow().get(key) {
                             Some(v) => if !is_equal(val, v) { flag = false; },
                             None => { flag = false; }
                         }
@@ -739,20 +928,24 @@ fn stringify(literal: Literals) -> String {
     match literal {
         Literals::Array(a) => {
             let mut res = String::from("[");
-            let arr = *a;
+            let arr = a.borrow();
             for item in arr.iter() {
                 res.push_str(&format!("{}, ", stringify(item.clone())));
             }
-            res.truncate(res.len() - 2);
+            if res.len() > 1 {
+                res.truncate(res.len() - 2);
+            }
             res.push(']');
             res
         },
         Literals::Dictionary(h) => {
             let mut res = String::from("{");
-            for (key, val) in *h {
-                res.push_str(&format!("{}: {}, ", key.stringify(), stringify(val)));
+            for (key, val) in h.borrow().iter() {
+                res.push_str(&format!("{}: {}, ", key.stringify(), stringify(val.clone())));
             }
-            res.truncate(res.len() - 2);
+            if res.len() > 1 {
+                res.truncate(res.len() - 2);
+            }
             res.push('}');
             res
         }
@@ -763,7 +956,9 @@ fn stringify(literal: Literals) -> String {
             for item in arr.iter() {
                 res.push_str(&format!("{}, ", stringify(item.clone())));
             }
-            res.truncate(res.len() - 2);
+            if res.len() > 1 {
+                res.truncate(res.len() - 2);
+            }
             res.push(')');
             res
         },

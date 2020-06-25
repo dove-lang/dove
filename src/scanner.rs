@@ -56,6 +56,7 @@ impl Scanner {
             ',' => { self.add_token(TokenType::COMMA, None); }
             ':' => { self.add_token(TokenType::COLON, None); }
             '-' => { self.add_token(TokenType::MINUS, None); }
+            '%' => { self.add_token(TokenType::PERCENT, None); }
             '+' => { self.add_token(TokenType::PLUS, None); }
             '*' => { self.add_token(TokenType::STAR, None); }
             // May be one or two characters.
@@ -84,7 +85,11 @@ impl Scanner {
             }
             // Slash or comment.
             '/' => {
-                if self.match_char('/') {
+                if self.match_char('>') {
+                    self.add_token(TokenType::SLASH_GREATER, None);
+                } else if self.match_char('<') {
+                    self.add_token(TokenType::SLASH_LESS, None);
+                } else if self.match_char('/') {
                     while self.peek() != '\n' && !self.is_at_end() { self.advance(); }
                 } else if self.match_char('*') {
                     self.block_comment();
