@@ -55,11 +55,14 @@ impl Scanner {
             '}' => { self.add_token(TokenType::RIGHT_BRACE, None); }
             ',' => { self.add_token(TokenType::COMMA, None); }
             ':' => { self.add_token(TokenType::COLON, None); }
-            '-' => { self.add_token(TokenType::MINUS, None); }
             '%' => { self.add_token(TokenType::PERCENT, None); }
             '+' => { self.add_token(TokenType::PLUS, None); }
             '*' => { self.add_token(TokenType::STAR, None); }
             // May be one or two characters.
+            '-' => {
+                let token_type = if self.match_char('>') { TokenType::MINUS_GREATER } else { TokenType::MINUS };
+                self.add_token(token_type, None);
+            }
             '!' => {
                 let token_type = if self.match_char('=') { TokenType::BANG_EQUAL } else { TokenType::BANG };
                 self.add_token(token_type, None);
@@ -237,6 +240,7 @@ lazy_static! {
         m.insert("from".to_string(), TokenType::FROM);
         m.insert("in".to_string(), TokenType::IN);
         m.insert("if".to_string(), TokenType::IF);
+        m.insert("lambda".to_string(), TokenType::LAMBDA);
         m.insert("let".to_string(), TokenType::LET);
         m.insert("nil".to_string(), TokenType::NIL);
         m.insert("not".to_string(), TokenType::NOT);

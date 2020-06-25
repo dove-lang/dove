@@ -177,6 +177,7 @@ impl<'a> Resolver<'a> {
                 self.visit_expr(index);
                 self.visit_expr(value);
             },
+            Expr::Lambda(params, expr) => {}
             Expr::Literal(_) => (),
             Expr::SelfExpr(token) => {
                 // TODO: after finishing class
