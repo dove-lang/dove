@@ -68,3 +68,54 @@ impl DoveCallable for DoveFunction {
         }
     }
 }
+
+#[derive(Debug)]
+pub struct DoveLambda {
+    pub declaration: Expr,
+    closure: Rc<RefCell<Environment>>,
+}
+
+impl DoveLambda {
+    pub fn new(declaration: Expr, closure: Rc<RefCell<Environment>>) -> DoveLambda {
+        DoveLambda {
+            declaration,
+            closure
+        }
+    }
+
+    pub fn arity(&self) -> usize {
+        match &self.declaration {
+            Expr::Lambda(params, _) => params.len(),
+            _ => { panic!("Cannot check arity. "); }
+        }
+    }
+}
+
+impl DoveCallable for DoveLambda {
+    fn call(&self, interpreter: &mut Interpreter, argument_vals: &Vec<Literals>) -> Literals {
+        let mut environment = Environment::new(Some(self.closure.clone()));
+
+        match &self.declaration {
+            Expr::Lambda(params, body) => {
+                for i in 0..params.len() {
+                    environment.define(params[i].lexeme.clone(), argument_vals[i].clone());
+                }
+
+                let statements = match body.as_ref() {
+                    Stmt::Block(statements) => statements,
+                    _ => panic!("Function have non-block body"),
+                };
+
+                match interpreter.execute_block(statements, environment) {
+                    Ok(_) => {},
+                    Err(return_val) => {
+                        return return_val;
+                    }
+                }
+
+                Literals::Nil
+            },
+            _ => { panic!("Not callable. "); }
+        }
+    }
+}

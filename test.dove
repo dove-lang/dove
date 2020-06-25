@@ -1,41 +1,63 @@
 
-class Person {
-    fun init(name) {
-        self.name = name
-    }
+fun create_multiplier(scale) {
+    return lambda x -> {
+        let res = 0
 
-    fun call_no_super() {
-        super.some_method()
-    }
+        let i = 0
+        while i < scale {
+            res = res + x
+            i = i + 1
+        }
 
-    fun getself() {
-        return self
-    }
-}
-
-class PersonSayHi from Person {
-    fun say_hi() {
-        print "hi, I'm " + self.name
+        return res
     }
 }
 
-class PersonSayHiTwice from PersonSayHi {
-    fun say_hi() {
-        super.say_hi()
-        super.say_hi()
-    }
+let doubler = create_multiplier(2)
+let tripler = create_multiplier(3)
 
-    fun call_something_that_does_not_exist() {
-        super.hmm()
-    }
-}
+print doubler(3)
+print tripler(2)
+print tripler(doubler(2))
 
-let person = PersonSayHiTwice("ur dad")
-person.say_hi()
-
-person.call_something_that_does_not_exist()
-
-let person2 = Person("hmm")
-person2.call_no_super()
-
-print person.getself().getself().getself().name
+// class Person {
+//     fun init(name) {
+//         self.name = name
+//     }
+//
+//     fun call_no_super() {
+//         super.some_method()
+//     }
+//
+//     fun getself() {
+//         return self
+//     }
+// }
+//
+// class PersonSayHi from Person {
+//     fun say_hi() {
+//         print "hi, I'm " + self.name
+//     }
+// }
+//
+// class PersonSayHiTwice from PersonSayHi {
+//     fun say_hi() {
+//         super.say_hi()
+//         super.say_hi()
+//     }
+//
+//     fun call_something_that_does_not_exist() {
+//         super.hmm()
+//     }
+// }
+//
+// let person = PersonSayHiTwice("ur dad")
+// person.say_hi()
+//
+// person.call_something_that_does_not_exist()
+//
+// let person2 = Person("hmm")
+// person2.call_no_super()
+//
+// print person.getself().getself().getself().name
+//

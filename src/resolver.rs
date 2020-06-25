@@ -242,7 +242,9 @@ impl<'a> Resolver<'a> {
                 self.visit_expr(index);
                 self.visit_expr(value);
             },
-            Expr::Lambda(params, expr) => {}
+            Expr::Lambda(params, body) => {
+                self.visit_function(params, body, FunctionType::Function)
+            },
             Expr::Literal(_) => (),
             Expr::SelfExpr(token) => {
                 if self.current_class == ClassType::None {

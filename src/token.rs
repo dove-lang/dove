@@ -3,7 +3,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::ast::{Stmt, Expr};
-use crate::dove_callable::{DoveFunction};
+use crate::dove_callable::{DoveFunction, DoveLambda};
 use crate::environment::Environment;
 use crate::dove_class::{DoveClass, DoveInstance};
 
@@ -70,7 +70,7 @@ pub enum Literals {
     Dictionary(Rc<RefCell<HashMap<DictKey, Literals>>>),
     String(String),
     Tuple(Box<Vec<Literals>>),
-    Lambda(Box<Expr>, Rc<RefCell<Environment>>),
+    Lambda(Rc<DoveLambda>),
     Number(f64),
     Boolean(bool),
     Nil,
@@ -88,7 +88,7 @@ impl Literals {
             Literals::Dictionary(_) => "Dictionary".to_string(),
             Literals::String(_) => "String".to_string(),
             Literals::Tuple(_) => "Tuple".to_string(),
-            Literals::Lambda(_, _) => "Lambda".to_string(),
+            Literals::Lambda(_) => "Lambda".to_string(),
             Literals::Number(_) => "Number".to_string(),
             Literals::Boolean(_) => "Boolean".to_string(),
             Literals::Nil => "Nil".to_string(),
