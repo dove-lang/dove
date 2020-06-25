@@ -2,8 +2,8 @@ use std::collections::HashMap;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use crate::ast::Stmt;
-use crate::dove_callable::DoveFunction;
+use crate::ast::{Stmt, Expr};
+use crate::dove_callable::{DoveFunction, DoveLambda};
 use crate::environment::Environment;
 use crate::dove_class::{DoveClass, DoveInstance};
 
@@ -37,14 +37,17 @@ impl Token {
 pub enum TokenType {
     // Single-character tokens.
     LEFT_PAREN, RIGHT_PAREN, LEFT_BRACE, RIGHT_BRACE, LEFT_BRACKET, RIGHT_BRACKET,
-    COMMA, COLON, MINUS, NEWLINE, PERCENT, PLUS, STAR,
+    COMMA, COLON, NEWLINE, PERCENT,
 
     // One or two character tokens.
-    SLASH, SLASH_LESS, SLASH_GREATER,
+    SLASH, SLASH_EQUAL, SLASH_LESS, SLASH_GREATER,
+    STAR, STAR_EQUAL,
     BACKSLASH,
     BANG, BANG_EQUAL,
     EQUAL, EQUAL_EQUAL,
     GREATER, GREATER_EQUAL,
+    PLUS, PLUS_EQUAL,
+    MINUS, MINUS_EQUAL, MINUS_GREATER,
     LESS, LESS_EQUAL,
 
     // One or two or three character tokens.
@@ -54,7 +57,7 @@ pub enum TokenType {
     IDENTIFIER, STRING, NUMBER,
 
     // Keywords.
-    AND, ARRAY, BREAK, CLASS, CONTINUE, DICT, ELSE, FALSE, FUN, FOR, FROM, IN, IF, LET, NIL, NOT, OR,
+    AND, ARRAY, BREAK, CLASS, CONTINUE, DICT, ELSE, FALSE, FUN, FOR, FROM, IN, IF, LAMBDA, LET, NIL, NOT, OR,
     PRINT, RETURN, SUPER, SELF, TRUE, TUPLE, WHILE,
 
     // End of file.
@@ -67,6 +70,7 @@ pub enum Literals {
     Dictionary(Rc<RefCell<HashMap<DictKey, Literals>>>),
     String(String),
     Tuple(Box<Vec<Literals>>),
+    Lambda(Rc<DoveLambda>),
     Number(f64),
     Boolean(bool),
     Nil,
@@ -82,6 +86,7 @@ impl Literals {
             Literals::Dictionary(_) => "Dictionary".to_string(),
             Literals::String(_) => "String".to_string(),
             Literals::Tuple(_) => "Tuple".to_string(),
+            Literals::Lambda(_) => "Lambda".to_string(),
             Literals::Number(_) => "Number".to_string(),
             Literals::Boolean(_) => "Boolean".to_string(),
             Literals::Nil => "Nil".to_string(),

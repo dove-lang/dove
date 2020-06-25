@@ -281,22 +281,41 @@ impl Parser {
     }
 
     fn assignment(&mut self) -> Result<Expr> {
-        let expr = self.if_expr()?;
+        let expr = self.lambda()?;
 
-        if self.consume(TokenType::EQUAL).is_ok() {
-            // If there is equal sign, parse assignment
-            // Parse expression here to allow assigning an assign expression
-            let value = self.expression()?;
+        match self.peek().token_type {
+            TokenType::EQUAL | TokenType::PLUS_EQUAL | TokenType::MINUS_EQUAL | TokenType::STAR_EQUAL | TokenType::SLASH_EQUAL => {
+                let sign = self.advance();
 
-            // Check whether assign to variable or set object property
-            match expr {
-                Expr::Get(obj, name) => Ok(Expr::Set(obj, name, Box::new(value))),
-                Expr::IndexGet(expr, index) => Ok(Expr::IndexSet(expr, index, Box::new(value))),
-                Expr::Variable(variable) => Ok(Expr::Assign(variable, Box::new(value))),
-                _ => Err(ParseError::Line(self.peek().line, "Cannot use assignment.".to_string())),
+                // If there is equal sign, parse assignment
+                // Parse expression here to allow assigning an assign expression
+                let value = self.expression()?;
+
+                // Check whether assign to variable or set object property
+                return match expr {
+                    Expr::Get(obj, name) => Ok(Expr::Set(obj, name, Box::new(value))),
+                    Expr::IndexGet(expr, index) => Ok(Expr::IndexSet(expr, index, Box::new(value))),
+                    Expr::Variable(variable) => Ok(Expr::Assign(variable, sign, Box::new(value))),
+                    _ => Err(ParseError::Line(self.peek().line, "Cannot use assignment.".to_string())),
+                };
+            },
+            _ => {
+                return Ok(expr);
             }
+        }
+    }
+
+    fn lambda(&mut self) -> Result<Expr> {
+        if self.consume(TokenType::LAMBDA).is_ok() {
+            let parameters = self.parameters()?;
+            self.consume(TokenType::MINUS_GREATER)?;
+            let stmt = self.block()?;
+
+            let res = Expr::Lambda(parameters, Box::new(stmt));
+            // println!("{:?}", &res);
+            Ok(res)
         } else {
-            Ok(expr)
+            self.if_expr()
         }
     }
 

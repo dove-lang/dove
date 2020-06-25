@@ -55,11 +55,16 @@ impl Scanner {
             '}' => { self.add_token(TokenType::RIGHT_BRACE, None); }
             ',' => { self.add_token(TokenType::COMMA, None); }
             ':' => { self.add_token(TokenType::COLON, None); }
-            '-' => { self.add_token(TokenType::MINUS, None); }
             '%' => { self.add_token(TokenType::PERCENT, None); }
-            '+' => { self.add_token(TokenType::PLUS, None); }
-            '*' => { self.add_token(TokenType::STAR, None); }
             // May be one or two characters.
+            '+' => {
+                let token_type = if self.match_char('=') { TokenType::PLUS_EQUAL } else { TokenType::PLUS };
+                self.add_token(token_type, None);
+            }
+            '*' => {
+                let token_type = if self.match_char('=') { TokenType::STAR_EQUAL } else { TokenType::STAR };
+                self.add_token(token_type, None);
+            }
             '!' => {
                 let token_type = if self.match_char('=') { TokenType::BANG_EQUAL } else { TokenType::BANG };
                 self.add_token(token_type, None);
@@ -83,10 +88,20 @@ impl Scanner {
                 } else { TokenType::DOT };
                 self.add_token(token_type, None);
             }
-            // Slash or comment.
+            '-' => {
+                if self.match_char('=') {
+                    self.add_token(TokenType::MINUS_EQUAL, None);
+                } else if self.match_char('>') {
+                    self.add_token(TokenType::MINUS_GREATER, None);
+                } else {
+                    self.add_token(TokenType::MINUS, None);
+                }
+            }
             '/' => {
                 if self.match_char('>') {
                     self.add_token(TokenType::SLASH_GREATER, None);
+                } else if self.match_char('=') {
+                    self.add_token(TokenType::SLASH_EQUAL, None);
                 } else if self.match_char('<') {
                     self.add_token(TokenType::SLASH_LESS, None);
                 } else if self.match_char('/') {
@@ -237,6 +252,7 @@ lazy_static! {
         m.insert("from".to_string(), TokenType::FROM);
         m.insert("in".to_string(), TokenType::IN);
         m.insert("if".to_string(), TokenType::IF);
+        m.insert("lambda".to_string(), TokenType::LAMBDA);
         m.insert("let".to_string(), TokenType::LET);
         m.insert("nil".to_string(), TokenType::NIL);
         m.insert("not".to_string(), TokenType::NOT);

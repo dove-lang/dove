@@ -122,8 +122,34 @@ impl ExprVisitor for Interpreter {
                 Ok(Literals::Array(Rc::new(RefCell::new(arr_vals))))
             },
 
-            Expr::Assign(name, value) => {
-                let val = self.evaluate(value)?;
+            Expr::Assign(name, op, value) => {
+                let line = op.line;
+                let val = match op.token_type {
+                    TokenType::EQUAL => {
+                        self.evaluate(value)?
+                    },
+                    TokenType::PLUS_EQUAL => {
+                        self.evaluate(&Expr::Binary(Box::new(Expr::Variable(name.clone())),
+                                                         Token::new(TokenType::PLUS, "+".to_string(), None, line),
+                                                         value.clone()))?
+                    },
+                    TokenType::MINUS_EQUAL => {
+                        self.evaluate(&Expr::Binary(Box::new(Expr::Variable(name.clone())),
+                                                    Token::new(TokenType::MINUS, "-".to_string(), None, line),
+                                                    value.clone()))?
+                    },
+                    TokenType::STAR_EQUAL => {
+                        self.evaluate(&Expr::Binary(Box::new(Expr::Variable(name.clone())),
+                                                    Token::new(TokenType::STAR, "*".to_string(), None, line),
+                                                    value.clone()))?
+                    },
+                    TokenType::SLASH_EQUAL => {
+                        self.evaluate(&Expr::Binary(Box::new(Expr::Variable(name.clone())),
+                                                    Token::new(TokenType::SLASH, "/".to_string(), None, line),
+                                                    value.clone()))?
+                    }
+                    _ => panic!("Magically found non assignment operator wrapped inside an Expr::Assign.")
+                };
 
                 let assigned = match self.get_local(name) {
                     Some(distance) => self.environment.borrow_mut().assign_at(*distance, name.lexeme.clone(), val.clone()),
@@ -280,15 +306,6 @@ impl ExprVisitor for Interpreter {
                         Ok(Literals::Instance(instance))
                     },
                     Literals::Function(function) => {
-                        // // Try to convert the evaluated callee literal to a DoveFunction object.
-                        // let mut function = match callee_val.to_function_object(){
-                        //     Ok(f) => f,
-                        //     Err(Interrupt::Error) => {
-                        //         self.report_err(paren.clone(), format!("Type '{}' is not callable.", callee_type));
-                        //         return Err(Interrupt::Error);
-                        //     }
-                        // };
-
                         // Check arity.
                         if argument_vals.len() != function.arity() {
                             self.report_err(paren.clone(), format!("Expected {} arguments but got {}",
@@ -298,6 +315,16 @@ impl ExprVisitor for Interpreter {
 
                         Ok(function.call(self, &argument_vals))
                     },
+                    Literals::Lambda(lambda) => {
+                        // Check arity.
+                        if argument_vals.len() != lambda.arity() {
+                            self.report_err(paren.clone(), format!("Expected {} arguments but got {}",
+                                                                   lambda.arity(), argument_vals.len()));
+                            return Err(());
+                        }
+
+                        Ok(lambda.call(self, &argument_vals))
+                    }
                     _ => panic!("Type '{}' is not callable.", callee_type),
                 }
             },
@@ -510,6 +537,11 @@ impl ExprVisitor for Interpreter {
                 }
             }
 
+            Expr::Lambda(params, body) => {
+                let lambda = DoveLambda::new(expr.clone(), self.environment.clone());
+                Ok(Literals::Lambda(Rc::new(lambda)))
+            }
+
             Expr::Literal(value) => {
                 Ok(value.clone())
             },
@@ -716,6 +748,7 @@ impl StmtVisitor for Interpreter {
                 Ok(())
             },
 
+            // TODO: Holy shit, clean this up later.
             Stmt::For(var_name, range_name, body) => {
                 let range_vals = self.evaluate(range_name)?;
                 let arr = match range_vals {
@@ -883,7 +916,7 @@ fn is_equal(literal_a: &Literals, literal_b: &Literals) -> bool {
             Literals::Nil => true,
             _ => false,
         }},
-        _ => panic!("Not implemented.")
+        _ => panic!("Comparison not supported.")
     }
 }
 
@@ -934,7 +967,23 @@ fn stringify(literal: Literals) -> String {
                 _ => { panic!("Magically found non-function decalation wrapped inside Literals::Function."); }
             };
             format!("<fun {}>", func_name)
-        }
+        },
+        Literals::Lambda(lambda) => {
+            match &lambda.declaration {
+                Expr::Lambda(params, _) => {
+                    let mut res = String::from("<lambda (");
+                    for param in params.iter() {
+                        res.push_str(&param.lexeme);
+                        res.push_str(", ");
+                    }
+                    if res.len() > 9 { res.truncate(res.len() - 2); }
+                    res.push_str(")>");
+
+                    res
+                },
+                _ => { panic!("Magically found non-lambda decalation wrapped inside Literals::Lambda."); }
+            }
+        },
         _ => panic!("Not implemented.")
     }
 }
