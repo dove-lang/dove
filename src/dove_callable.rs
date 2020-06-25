@@ -103,13 +103,9 @@ impl DoveCallable for DoveLambda {
                 };
 
                 match interpreter.execute_block(statements, environment) {
-                    Ok(_) => {},
-                    Err(return_val) => {
-                        return return_val;
-                    }
+                    Err(Interrupt::Return(return_val)) => return_val,
+                    _ => Literals::Nil,
                 }
-
-                Literals::Nil
             },
             _ => { panic!("Not callable. "); }
         }

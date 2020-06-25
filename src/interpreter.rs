@@ -309,7 +309,7 @@ impl ExprVisitor for Interpreter {
                         // Check arity.
                         if argument_vals.len() != function.arity() {
                             self.report_err(paren.clone(), format!("Expected {} arguments but got {}",
-                                                                function.arity(), argument_vals.len()));
+                                                                   function.arity(), argument_vals.len()));
                             return Err(Interrupt::Error);
                         }
 
@@ -320,7 +320,7 @@ impl ExprVisitor for Interpreter {
                         if argument_vals.len() != lambda.arity() {
                             self.report_err(paren.clone(), format!("Expected {} arguments but got {}",
                                                                    lambda.arity(), argument_vals.len()));
-                            return Err(());
+                            return Err(Interrupt::Error);
                         }
 
                         Ok(lambda.call(self, &argument_vals))
