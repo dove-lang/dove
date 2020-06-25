@@ -298,15 +298,6 @@ impl ExprVisitor for Interpreter {
                         Ok(Literals::Instance(instance))
                     },
                     Literals::Function(function) => {
-                        // // Try to convert the evaluated callee literal to a DoveFunction object.
-                        // let mut function = match callee_val.to_function_object(){
-                        //     Ok(f) => f,
-                        //     Err(()) => {
-                        //         self.report_err(paren.clone(), format!("Type '{}' is not callable.", callee_type));
-                        //         return Err(());
-                        //     }
-                        // };
-
                         // Check arity.
                         if argument_vals.len() != function.arity() {
                             self.report_err(paren.clone(), format!("Expected {} arguments but got {}",
@@ -316,6 +307,16 @@ impl ExprVisitor for Interpreter {
 
                         Ok(function.call(self, &argument_vals))
                     },
+                    Literals::Lambda(lambda) => {
+                        // Check arity.
+                        if argument_vals.len() != lambda.arity() {
+                            self.report_err(paren.clone(), format!("Expected {} arguments but got {}",
+                                                                   lambda.arity(), argument_vals.len()));
+                            return Err(());
+                        }
+
+                        Ok(lambda.call(self, &argument_vals))
+                    }
                     _ => panic!("Type '{}' is not callable.", callee_type),
                 }
             },
@@ -543,9 +544,9 @@ impl ExprVisitor for Interpreter {
                 }
             }
 
-            // TODO
             Expr::Lambda(params, body) => {
-                Ok(Literals::Nil)
+                let lambda = DoveLambda::new(expr.clone(), self.environment.clone());
+                Ok(Literals::Lambda(Rc::new(lambda)))
             }
 
             Expr::Literal(value) => {
@@ -757,6 +758,7 @@ impl StmtVisitor for Interpreter {
                 }
             },
 
+            // TODO: Holy shit, clean this up later.
             Stmt::For(var_name, range_name, body) => {
                 let range_vals = match self.evaluate(range_name) {
                     Ok(v) => v,
@@ -976,6 +978,22 @@ fn stringify(literal: Literals) -> String {
                 _ => { panic!("Magically found non-function decalation wrapped inside Literals::Function."); }
             };
             format!("<fun {}>", func_name)
+        },
+        Literals::Lambda(lambda) => {
+            match &lambda.declaration {
+                Expr::Lambda(params, _) => {
+                    let mut res = String::from("<lambda (");
+                    for param in params.iter() {
+                        res.push_str(&param.lexeme);
+                        res.push_str(", ");
+                    }
+                    if res.len() > 9 { res.truncate(res.len() - 2); }
+                    res.push_str(")>");
+
+                    res
+                },
+                _ => { panic!("Magically found non-lambda decalation wrapped inside Literals::Lambda."); }
+            }
         },
         _ => panic!("Not implemented.")
     }
