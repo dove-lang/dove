@@ -120,8 +120,34 @@ impl ExprVisitor for Interpreter {
                 Ok(Literals::Array(Rc::new(RefCell::new(arr_vals))))
             },
 
-            Expr::Assign(name, value) => {
-                let val = self.evaluate(value)?;
+            Expr::Assign(name, op, value) => {
+                let line = op.line;
+                let val = match op.token_type {
+                    TokenType::EQUAL => {
+                        self.evaluate(value)?
+                    },
+                    TokenType::PLUS_EQUAL => {
+                        self.evaluate(&Expr::Binary(Box::new(Expr::Variable(name.clone())),
+                                                         Token::new(TokenType::PLUS, "+".to_string(), None, line),
+                                                         value.clone()))?
+                    },
+                    TokenType::MINUS_EQUAL => {
+                        self.evaluate(&Expr::Binary(Box::new(Expr::Variable(name.clone())),
+                                                    Token::new(TokenType::MINUS, "-".to_string(), None, line),
+                                                    value.clone()))?
+                    },
+                    TokenType::STAR_EQUAL => {
+                        self.evaluate(&Expr::Binary(Box::new(Expr::Variable(name.clone())),
+                                                    Token::new(TokenType::STAR, "*".to_string(), None, line),
+                                                    value.clone()))?
+                    },
+                    TokenType::SLASH_EQUAL => {
+                        self.evaluate(&Expr::Binary(Box::new(Expr::Variable(name.clone())),
+                                                    Token::new(TokenType::SLASH, "/".to_string(), None, line),
+                                                    value.clone()))?
+                    }
+                    _ => panic!("Magically found non assignment operator wrapped inside an Expr::Assign.")
+                };
 
                 let assigned = match self.get_local(name) {
                     Some(distance) => self.environment.borrow_mut().assign_at(*distance, name.lexeme.clone(), val.clone()),

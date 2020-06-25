@@ -4,7 +4,7 @@ use crate::ast::Stmt;
 #[derive(Debug, Clone)]
 pub enum Expr {
     Array      (Vec<Expr>),
-    Assign     (Token, Box<Expr>),
+    Assign     (Token, Token, Box<Expr>),
     Binary     (Box<Expr>, Token, Box<Expr>),
     Call       (Box<Expr>, Token, Vec<Expr>),
     Dictionary (Vec<(Expr, Expr)>),

@@ -201,7 +201,7 @@ impl<'a> Resolver<'a> {
                     self.visit_expr(expr);
                 }
             },
-            Expr::Assign(variable, value) => {
+            Expr::Assign(variable, _, value) => {
                 self.visit_expr(value);
                 self.resolve_local(variable, &variable.lexeme)
             },
