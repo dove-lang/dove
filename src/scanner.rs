@@ -58,8 +58,13 @@ impl Scanner {
             '%' => { self.add_token(TokenType::PERCENT, None); }
             // May be one or two characters.
             '+' => {
-                let token_type = if self.match_char('=') { TokenType::PLUS_EQUAL } else { TokenType::PLUS };
-                self.add_token(token_type, None);
+                if self.match_char('=') {
+                    self.add_token(TokenType::PLUS_EQUAL, None);
+                } else if self.match_char('+') {
+                    self.add_token(TokenType::PLUS_PLUS, None);
+                } else {
+                    self.add_token(TokenType::PLUS, None);
+                }
             }
             '*' => {
                 let token_type = if self.match_char('=') { TokenType::STAR_EQUAL } else { TokenType::STAR };
@@ -91,6 +96,8 @@ impl Scanner {
             '-' => {
                 if self.match_char('=') {
                     self.add_token(TokenType::MINUS_EQUAL, None);
+                } else if self.match_char('-') {
+                    self.add_token(TokenType::MINUS_MINUS, None);
                 } else if self.match_char('>') {
                     self.add_token(TokenType::MINUS_GREATER, None);
                 } else {
