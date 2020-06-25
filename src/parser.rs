@@ -17,6 +17,12 @@ pub struct Parser {
     /// If this is true, automatically skips newline after advance.
     ignore_newline: bool,
 
+    /// If `is_in_repl` is true, do not consider unterminated block as error,
+    /// set `unfinished_blk` to true,
+    /// when given source is parsed correctly, set `unfinished_blk` back to false.
+    is_in_repl: bool,
+    pub is_in_unfinished_blk: bool,
+
     error_handler: CompiletimeErrorHandler,
 
     /// Indicates how "deep" the parser currently is nested in (), [], and {}.
@@ -28,11 +34,13 @@ pub struct Parser {
 }
 
 impl Parser {
-    pub fn new(tokens: Vec<Token>) -> Parser {
+    pub fn new(tokens: Vec<Token>, is_in_repl: bool) -> Parser {
         Parser {
             current: 0,
             tokens,
             ignore_newline: false,
+            is_in_repl,
+            is_in_unfinished_blk: false,
             error_handler: CompiletimeErrorHandler {
                 had_error: false,
             },
@@ -65,7 +73,14 @@ impl Parser {
         self.synchronize();
 
         match error {
-            ParseError::Token(token, message) => self.error_handler.token_error(token, message),
+            ParseError::Token(token, message) => {
+                if message.contains("RIGHT_BRACE") {
+                    self.is_in_unfinished_blk = true;
+                    return;
+                }
+
+                self.error_handler.token_error(token, message)
+            },
             ParseError::Line(line, message) => self.error_handler.line_error(line, message),
         }
     }

@@ -11,12 +11,14 @@ use crate::resolver::Resolver;
 
 pub struct Dove {
     interpreter: Interpreter,
+    is_repl_unfinished: bool,
 }
 
 impl Dove {
     pub fn new() -> Self {
         Dove {
             interpreter: Interpreter::new(),
+            is_repl_unfinished: false,
         }
     }
 
@@ -44,7 +46,7 @@ impl Dove {
             }
         }
 
-        self.run(content.chars().collect());
+        self.run(content.chars().collect(), false);
     }
 
     pub fn run_prompt(mut self) {
@@ -53,10 +55,14 @@ impl Dove {
         cyan_ln!("Dove 0.0.1 (default, {})", date.format("%b %e %Y, %H:%M:%S"));
         cyan_ln!("Visit https://github.com/dove-lang for more information.");
 
-        loop {
-            let mut input = String::new();
-            print!(">>> ");
+        // Used to store previous lines of code, if encounters unfinished blocks.
+        let mut code_buffer = String::new();
 
+        loop {
+            let mut indicator = format!("{} ", if self.is_repl_unfinished {"..."} else {">>>"});
+            print!("{}", indicator);
+
+            let mut input = String::new();
             // `stdout` gets flushed on new lines, manually flush it.
             let _ = io::stdout().flush();
             match io::stdin().read_line(&mut input) {
@@ -67,19 +73,34 @@ impl Dove {
                 }
             }
 
-            self = self.run(input.chars().collect());
+            let input = format!("{}{}", code_buffer, input);
+
+            self = self.run(input.chars().collect(), true);
+
+            // If Dove is in an unfinished block, store `input` back in `code_buffer`,
+            // otherwise clear `code_buffer`.
+            if self.is_repl_unfinished {
+                code_buffer = input;
+            } else {
+                code_buffer = String::new();
+            }
 
             // Reset the flag; one mistake from the user shouldn't kill the entire session.
             // self.had_error = false;
         }
     }
 
-    fn run(mut self, source: Vec<char>) -> Self {
+    fn run(mut self, source: Vec<char>, is_in_repl: bool) -> Self {
         let mut scanner = Scanner::new(source);
         let tokens = scanner.scan_tokens();
 
-        let mut parser = Parser::new(tokens.to_owned());
+        let mut parser = Parser::new(tokens.to_owned(), is_in_repl);
         let statements = parser.program();
+
+        // Check if unfinished status change.
+        if parser.is_in_unfinished_blk != self.is_repl_unfinished {
+            self.is_repl_unfinished = !self.is_repl_unfinished;
+        }
 
         // Stops if there is a syntax error.
         // if self.had_error {
