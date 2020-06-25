@@ -761,7 +761,7 @@ impl StmtVisitor for Interpreter {
                     Literals::Array(arr) => {
                         for item in arr.borrow().iter() {
                             let mut sub_env = Environment::new(Some(self.environment.clone()));
-                            sub_env.define(var_name.clone(), item.clone());
+                            sub_env.define(var_name.lexeme.clone(), item.clone());
                             match &**body {
                                 Stmt::Block(stmts) => {
                                     match self.execute_block(&stmts, sub_env) {
