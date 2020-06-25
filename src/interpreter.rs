@@ -126,12 +126,12 @@ impl ExprVisitor for Interpreter {
                     TokenType::EQUAL => {
                         self.evaluate(value)?
                     },
-                    TokenType::PLUS_EQUAL => {
+                    TokenType::PLUS_EQUAL | TokenType::PLUS_PLUS => {
                         self.evaluate(&Expr::Binary(Box::new(Expr::Variable(name.clone())),
                                                          Token::new(TokenType::PLUS, "+".to_string(), None, line),
                                                          value.clone()))?
                     },
-                    TokenType::MINUS_EQUAL => {
+                    TokenType::MINUS_EQUAL | TokenType::MINUS_MINUS => {
                         self.evaluate(&Expr::Binary(Box::new(Expr::Variable(name.clone())),
                                                     Token::new(TokenType::MINUS, "-".to_string(), None, line),
                                                     value.clone()))?

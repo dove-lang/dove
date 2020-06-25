@@ -284,12 +284,17 @@ impl Parser {
         let expr = self.lambda()?;
 
         match self.peek().token_type {
-            TokenType::EQUAL | TokenType::PLUS_EQUAL | TokenType::MINUS_EQUAL | TokenType::STAR_EQUAL | TokenType::SLASH_EQUAL => {
+            TokenType::EQUAL | TokenType::PLUS_EQUAL | TokenType::MINUS_EQUAL | TokenType::STAR_EQUAL | TokenType::SLASH_EQUAL |
+            TokenType::PLUS_PLUS | TokenType::MINUS_MINUS => {
                 let sign = self.advance();
 
-                // If there is equal sign, parse assignment
-                // Parse expression here to allow assigning an assign expression
-                let value = self.expression()?;
+                // If ++ or --, make value Number(1.0).
+                let value = match (&sign).token_type {
+                    TokenType::PLUS_PLUS | TokenType::MINUS_MINUS => Expr::Literal(Literals::Number(1.0)),
+                    // If there is equal sign, parse assignment
+                    // Parse expression here to allow assigning an assign expression
+                    _ => self.expression()?,
+                };
 
                 // Check whether assign to variable or set object property
                 return match expr {

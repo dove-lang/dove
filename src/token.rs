@@ -46,8 +46,8 @@ pub enum TokenType {
     BANG, BANG_EQUAL,
     EQUAL, EQUAL_EQUAL,
     GREATER, GREATER_EQUAL,
-    PLUS, PLUS_EQUAL,
-    MINUS, MINUS_EQUAL, MINUS_GREATER,
+    PLUS, PLUS_EQUAL, PLUS_PLUS,
+    MINUS, MINUS_EQUAL, MINUS_GREATER, MINUS_MINUS,
     LESS, LESS_EQUAL,
 
     // One or two or three character tokens.
