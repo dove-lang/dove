@@ -79,7 +79,7 @@ impl Interpreter {
         match self.get_local(variable) {
             Some(distance) => self.environment.borrow().get_at(*distance, &variable.lexeme),
             None => self.globals.borrow().get(&variable.lexeme),
-        }.ok()
+        }
     }
 
     fn check_number_operand(&mut self, operator: &Token, left: &Literals, right: &Literals) -> Result<(), ()> {
@@ -123,17 +123,16 @@ impl ExprVisitor for Interpreter {
             Expr::Assign(name, value) => {
                 let val = self.evaluate(value)?;
 
-                let res = match self.get_local(name) {
+                let assigned = match self.get_local(name) {
                     Some(distance) => self.environment.borrow_mut().assign_at(*distance, name.lexeme.clone(), val.clone()),
                     None => self.globals.borrow_mut().assign(name.lexeme.clone(), val.clone()),
                 };
 
-                match res {
-                    Ok(_) => Ok(val),
-                    Err(_) => {
-                        self.report_err(name.clone(), format!("Cannot assign value to '{}', as it is not found in scope.", name.lexeme));
-                        Err(())
-                    }
+                if assigned {
+                    Ok(val)
+                } else {
+                    self.report_err(name.clone(), format!("Cannot assign value to '{}', as it is not found in scope.", name.lexeme));
+                    Err(())
                 }
             },
 
@@ -335,7 +334,6 @@ impl ExprVisitor for Interpreter {
                 self.evaluate(expression)
             },
 
-            // TODO: Implement visit Get expression.
             Expr::Get(object, name) => {
                 let expr = self.visit_expr(object)?;
 
@@ -391,7 +389,6 @@ impl ExprVisitor for Interpreter {
                 Ok(value.clone())
             },
 
-            // TODO: Implement visit Set expression.
             Expr::Set(object, name, value) => {
                 let expr = self.visit_expr(object)?;
                 let value = self.visit_expr(value)?;
@@ -412,7 +409,6 @@ impl ExprVisitor for Interpreter {
                 }
             }
 
-            // TODO: Implement visit Self expression.
             Expr::SelfExpr(token) => {
                 if let Some(instance) = self.lookup_variable(token) {
                     Ok(instance)
@@ -442,7 +438,7 @@ impl ExprVisitor for Interpreter {
 
                 let maybe_class = self.environment.borrow().get_at(distance, &token.lexeme);
                 let class = match maybe_class {
-                    Ok(Literals::Class(class)) => class,
+                    Some(Literals::Class(class)) => class,
                     _ => {
                         self.report_err(
                             method.clone(),
@@ -467,7 +463,7 @@ impl ExprVisitor for Interpreter {
                 // TODO: consider for static methods?
                 let maybe_instance = self.environment.borrow().get_at(distance - 1, "self");
                 let instance = match maybe_instance {
-                    Ok(Literals::Instance(instance)) => instance,
+                    Some(Literals::Instance(instance)) => instance,
                     _ => {
                         // TODO: report better error
                         self.report_err(

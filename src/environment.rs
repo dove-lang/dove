@@ -4,7 +4,6 @@ use std::cell::RefCell;
 use std::fmt;
 
 use crate::token::Literals;
-use crate::token::Token;
 
 #[derive(Clone)]
 pub struct Environment {
@@ -30,40 +29,37 @@ impl Environment {
         }
     }
 
-    pub fn get(&self, name: &str) -> Result<Literals, ()> {
-        match self.values.get(name) {
-            Some(v) => Ok(v.clone()),
-            None => Err(()),
-        }
+    pub fn get(&self, name: &str) -> Option<Literals> {
+        self.values.get(name).map(Literals::clone)
     }
 
-    pub fn get_at(&self, distance: usize, name: &str) -> Result<Literals, ()> {
+    pub fn get_at(&self, distance: usize, name: &str) -> Option<Literals> {
         if distance <= 0 {
             self.get(name)
         } else {
             match &self.enclosing {
                 Some(enclosing) => enclosing.borrow().get_at(distance - 1, name),
-                None => Err(())
+                None => None,
             }
         }
     }
 
-    pub fn assign(&mut self, name: String, value: Literals) -> Result<(), ()> {
+    pub fn assign(&mut self, name: String, value: Literals) -> bool {
         if self.values.contains_key(&name) {
             self.values.insert(name, value);
-            Ok(())
+            true
         } else {
-            Err(())
+            false
         }
     }
 
-    pub fn assign_at(&mut self, distance: usize, name: String, value: Literals) -> Result<(), ()> {
+    pub fn assign_at(&mut self, distance: usize, name: String, value: Literals) -> bool {
         if distance <= 0 {
             self.assign(name, value)
         } else {
             match &self.enclosing {
                 Some(enclosing) => enclosing.borrow_mut().assign_at(distance - 1, name, value),
-                None => Err(()),
+                None => false,
             }
         }
     }

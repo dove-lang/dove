@@ -40,7 +40,6 @@ pub struct DoveInstance {
 
 impl DoveInstance {
     pub fn new(class: Rc<DoveClass>) -> DoveInstance {
-        // TODO: run initializer?
         DoveInstance {
             class,
             fields: HashMap::new(),

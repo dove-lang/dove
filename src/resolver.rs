@@ -26,7 +26,6 @@ pub struct Resolver<'a> {
     error_handler: CompiletimeErrorHandler,
     current_function: FunctionType,
     current_class: ClassType,
-    // TODO: should set in_loop to false when enter function?
     in_loop: bool,
 }
 
@@ -151,7 +150,7 @@ impl<'a> Resolver<'a> {
 
                 self.visit_function(params, body, FunctionType::Function)
             },
-            Stmt::Print(token, expr) => {
+            Stmt::Print(_, expr) => {
                 self.visit_expr(expr);
             },
             Stmt::Return(token, expr) => {
@@ -204,14 +203,13 @@ impl<'a> Resolver<'a> {
             },
             Expr::Assign(variable, value) => {
                 self.visit_expr(value);
-                // TODO: Check whether this exist first???
                 self.resolve_local(variable, &variable.lexeme)
             },
             Expr::Binary(expr1, _, expr2) => {
                 self.visit_expr(expr1);
                 self.visit_expr(expr2);
             },
-            Expr::Call(callee, paren, args) => {
+            Expr::Call(callee, _, args) => {
                 self.visit_expr(callee);
 
                 for arg in args {
@@ -224,9 +222,8 @@ impl<'a> Resolver<'a> {
                     self.visit_expr(value);
                 }
             },
-            Expr::Get(obj, token) => {
+            Expr::Get(obj, _) => {
                 self.visit_expr(obj);
-                // TODO: token shouldn't need to be checked?
             },
             Expr::Grouping(expr) => {
                 self.visit_expr(expr);
@@ -256,11 +253,11 @@ impl<'a> Resolver<'a> {
 
                 self.resolve_local(&token, &token.lexeme);
             },
-            Expr::Set(obj, token, value) => {
+            Expr::Set(obj, _, value) => {
                 self.visit_expr(obj);
                 self.visit_expr(value);
             },
-            Expr::SuperExpr(token, method) => {
+            Expr::SuperExpr(token, _) => {
                 if self.current_class == ClassType::None {
                     self.error_handler.token_error(
                         token.clone(),
@@ -280,7 +277,7 @@ impl<'a> Resolver<'a> {
                     self.visit_expr(expr);
                 }
             },
-            Expr::Unary(token, expr) => {
+            Expr::Unary(_, expr) => {
                 self.visit_expr(expr);
             },
             Expr::Variable(variable) => {
@@ -301,6 +298,10 @@ impl<'a> Resolver<'a> {
         let enclosing_function = self.current_function;
         self.current_function = function_type;
 
+        // Set in loop to false to disallow top level break/continue in functions
+        let prev_in_loop = self.in_loop;
+        self.in_loop = false;
+
         self.begin_scope();
 
         for param in params {
@@ -312,6 +313,7 @@ impl<'a> Resolver<'a> {
         self.resolve(unwrap_block(body));
         self.end_scope();
 
+        self.in_loop = prev_in_loop;
         self.current_function = enclosing_function;
     }
 }
