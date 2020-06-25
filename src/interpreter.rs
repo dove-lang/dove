@@ -366,16 +366,6 @@ impl ExprVisitor for Interpreter {
 
                         Ok(function.call(self, &argument_vals))
                     },
-                    Literals::Lambda(lambda) => {
-                        // Check arity.
-                        if argument_vals.len() != lambda.arity() {
-                            self.report_err(paren.clone(), format!("Expected {} arguments but got {}",
-                                                                   lambda.arity(), argument_vals.len()));
-                            return Err(Interrupt::Error);
-                        }
-
-                        Ok(lambda.call(self, &argument_vals))
-                    }
                     _ => panic!("Type '{}' is not callable.", callee_type),
                 }
             },
@@ -589,8 +579,8 @@ impl ExprVisitor for Interpreter {
             }
 
             Expr::Lambda(params, body) => {
-                let lambda = DoveLambda::new(expr.clone(), self.environment.clone());
-                Ok(Literals::Lambda(Rc::new(lambda)))
+                let lambda = DoveFunction::new(params.clone(), *body.clone(), Rc::clone(&self.environment));
+                Ok(Literals::Function(Rc::new(lambda)))
             }
 
             Expr::Literal(value) => {
@@ -768,8 +758,8 @@ impl StmtVisitor for Interpreter {
                 for method in methods {
                     let mut environment = Rc::clone(&self.environment);
 
-                    let name = match method {
-                        Stmt::Function(name, _, _) => name,
+                    let (name, params, body) = match method {
+                        Stmt::Function(name, params, body) => (name, params, body),
                         _ => panic!("Class contains non-method statements."),
                     };
 
@@ -781,7 +771,7 @@ impl StmtVisitor for Interpreter {
                         );
                     }
 
-                    let function = Rc::new(DoveFunction::new(method.clone(), environment));
+                    let function = Rc::new(DoveFunction::new(params.clone(), *body.clone(), environment));
                     methods_map.insert(name.lexeme.clone(), function);
                 }
 
@@ -867,7 +857,7 @@ impl StmtVisitor for Interpreter {
 
             Stmt::Function(name, params, body) => {
                 // Convert DoveFunction to Function Literal.
-                let function = DoveFunction::new(stmt.clone(), self.environment.clone());
+                let function = DoveFunction::new(params.clone(), *body.clone(), Rc::clone(&self.environment));
                 let function_literal = Literals::Function(Rc::new(function));
                 self.environment.borrow_mut().define(name.lexeme.clone(), function_literal);
                 Ok(())
@@ -1033,27 +1023,15 @@ fn stringify(literal: Literals) -> String {
         Literals::Boolean(b) => b.to_string(),
         Literals::Nil => "nil".to_string(),
         Literals::Function(function) => {
-            let func_name = match &function.declaration {
-                Stmt::Function(name_token, _, _) => &name_token.lexeme,
-                _ => { panic!("Magically found non-function decalation wrapped inside Literals::Function."); }
-            };
-            format!("<fun {}>", func_name)
-        },
-        Literals::Lambda(lambda) => {
-            match &lambda.declaration {
-                Expr::Lambda(params, _) => {
-                    let mut res = String::from("<lambda (");
-                    for param in params.iter() {
-                        res.push_str(&param.lexeme);
-                        res.push_str(", ");
-                    }
-                    if res.len() > 9 { res.truncate(res.len() - 2); }
-                    res.push_str(")>");
-
-                    res
-                },
-                _ => { panic!("Magically found non-lambda decalation wrapped inside Literals::Lambda."); }
+            let mut res = String::from("<fun (");
+            for param in function.params.iter() {
+                res.push_str(&param.lexeme);
+                res.push_str(", ");
             }
+            if res.len() > 9 { res.truncate(res.len() - 2); }
+            res.push_str(")>");
+
+            res
         },
         _ => panic!("Not implemented.")
     }
