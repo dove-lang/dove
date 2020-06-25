@@ -74,7 +74,7 @@ impl Parser {
 
         match error {
             ParseError::Token(token, message) => {
-                if message.contains("RIGHT_BRACE") {
+                if self.is_in_repl && message.contains("RIGHT_BRACE") {
                     self.is_in_unfinished_blk = true;
                     return;
                 }
