@@ -1,41 +1,27 @@
-
 class Person {
-    fun init(name) {
+    fun init(name, friends) {
         self.name = name
+        self.friends = friends
     }
 
-    fun call_no_super() {
-        super.some_method()
-    }
+    fun get_friend(name) {
+        for friend in self.friends {
+            if friend.name == name {
+                return friend
+            }
+        }
 
-    fun getself() {
-        return self
-    }
-}
-
-class PersonSayHi from Person {
-    fun say_hi() {
-        print "hi, I'm " + self.name
+        return nil
     }
 }
 
-class PersonSayHiTwice from PersonSayHi {
-    fun say_hi() {
-        super.say_hi()
-        super.say_hi()
-    }
+let a = Person("a", [])
+let b = Person("b", [])
+let c = Person("c", [a, b])
 
-    fun call_something_that_does_not_exist() {
-        super.hmm()
-    }
-}
+print c.get_friend("b").name
 
-let person = PersonSayHiTwice("ur dad")
-person.say_hi()
+c.friends[1] = a
 
-person.call_something_that_does_not_exist()
-
-let person2 = Person("hmm")
-person2.call_no_super()
-
-print person.getself().getself().getself().name
+print c.get_friend("b")
+print c.get_friend("a").name
