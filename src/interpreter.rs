@@ -801,14 +801,6 @@ impl StmtVisitor for Interpreter {
 
             Stmt::For(var_name, range_name, body) => {
                 let range_vals = self.evaluate(range_name)?;
-                let arr = match range_vals {
-                    Literals::Array(arr) => arr,
-                    _ => {
-                        self.report_err(var_name.clone(), format!("Cannot iterate over type '{}'", range_vals.to_string()));
-                        return Err(Interrupt::Error);
-                    }
-                };
-
                 let stmts = match &**body {
                     Stmt::Block(stmts) => stmts,
                     _ => {
@@ -817,31 +809,60 @@ impl StmtVisitor for Interpreter {
                     },
                 };
 
-                // Use loop with index to avoid having a reference to arr while executing `stmts`
-                let mut index = 0;
+                match range_vals {
+                    Literals::Array(arr) => {
 
-                loop {
-                    let item = match arr.borrow().get(index) {
-                        Some(item) => item.clone(),
-                        None => break,
-                    };
-                    // Reference to arr is dropped here
+                        // Use loop with index to avoid having a reference to arr while executing `stmts`
+                        let mut index = 0;
 
-                    let mut sub_env = Environment::new(Some(self.environment.clone()));
-                    sub_env.define(var_name.lexeme.clone(), item);
+                        loop {
+                            let item = match arr.borrow().get(index) {
+                                Some(item) => item.clone(),
+                                None => break,
+                            };
+                            // Reference to arr is dropped here
 
-                    if let Err(interrupt) = self.execute_block(&stmts, sub_env) {
-                        match interrupt {
-                            Interrupt::Break => return Ok(()),
-                            Interrupt::Continue => {},
-                            _ => return Err(interrupt),
+                            let mut sub_env = Environment::new(Some(self.environment.clone()));
+                            sub_env.define(var_name.lexeme.clone(), item);
+
+                            if let Err(interrupt) = self.execute_block(&stmts, sub_env) {
+                                match interrupt {
+                                    Interrupt::Break => return Ok(()),
+                                    Interrupt::Continue => {},
+                                    _ => return Err(interrupt),
+                                }
+                            }
+
+                            index += 1;
                         }
+
+                        Ok(())
+                    },
+
+                    Literals::Tuple(t) => {
+                        let tup = *t;
+
+                        for item in tup.iter() {
+                            let mut sub_env = Environment::new(Some(self.environment.clone()));
+                            sub_env.define(var_name.lexeme.clone(), item.clone());
+
+                            if let Err(interrupt) = self.execute_block(&stmts, sub_env) {
+                                match interrupt {
+                                    Interrupt::Break => return Ok(()),
+                                    Interrupt::Continue => {},
+                                    _ => return Err(interrupt),
+                                }
+                            }
+                        }
+
+                        Ok(())
                     }
 
-                    index += 1;
+                    _ => {
+                        self.report_err(var_name.clone(), format!("Cannot iterate over type '{}'", range_vals.to_string()));
+                        return Err(Interrupt::Error);
+                    }
                 }
-
-                Ok(())
             },
 
             Stmt::Function(name, params, body) => {
