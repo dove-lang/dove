@@ -103,6 +103,19 @@ impl Interpreter {
         }
     }
 
+    fn check_integer_operand(&mut self, operator: &Token, left: &Literals, right: &Literals) -> Result<()> {
+        match (left, right) {
+            (Literals::Number(l), Literals::Number(r)) => {
+                if l.fract() == 0.0 && r.fract() == 0.0 {
+                    return Ok(());
+                }
+            },
+            _ => {}
+        }
+        self.report_err(operator.clone(), format!("Operands of '{}' must be two integers.", operator.lexeme));
+        Err(Interrupt::Error)
+    }
+
     fn report_err(&mut self, token: Token, message: String) {
         let rt_err = RuntimeError::new(token.clone(), message);
         self.error_handler.runtime_error(rt_err);
@@ -264,6 +277,44 @@ impl ExprVisitor for Interpreter {
                             }
                         }
                     },
+                    TokenType::DOT_DOT => {
+                        match self.check_integer_operand(operator, &left_val, &right_val) {
+                            Ok(_) => {
+                                let (left, right) = (left_val.clone().unwrap_number().unwrap() as isize,
+                                                                 right_val.clone().unwrap_number().unwrap() as isize);
+                                let is_right_bigger = right >= left;
+                                let diff = (right - left).abs();
+
+                                let mut res = Vec::new();
+                                for i in 0..diff {
+                                    let new = left + i * if is_right_bigger { 1 } else { -1 };
+                                    res.push(Literals::Number(new as f64));
+                                }
+
+                                Ok(Literals::Tuple(Box::new(res)))
+                            },
+                            Err(_) => Err(Interrupt::Error)
+                        }
+                    },
+                    TokenType::DOT_DOT_DOT => {
+                        match self.check_integer_operand(operator, &left_val, &right_val) {
+                            Ok(_) => {
+                                let (left, right) = (left_val.clone().unwrap_number().unwrap() as isize,
+                                                     right_val.clone().unwrap_number().unwrap() as isize);
+                                let is_right_bigger = right >= left;
+                                let diff = (right - left).abs();
+
+                                let mut res = Vec::new();
+                                for i in 0..(diff + 1) {
+                                    let new = left + i * if is_right_bigger { 1 } else { -1 };
+                                    res.push(Literals::Number(new as f64));
+                                }
+
+                                Ok(Literals::Tuple(Box::new(res)))
+                            },
+                            Err(_) => Err(Interrupt::Error)
+                        }
+                    }
                     _ => {
                         self.report_err(operator.clone(),
                                         format!("Unsupported operator: '{}'.", operator.lexeme));
@@ -748,17 +799,8 @@ impl StmtVisitor for Interpreter {
                 Ok(())
             },
 
-            // TODO: Holy shit, clean this up later.
             Stmt::For(var_name, range_name, body) => {
                 let range_vals = self.evaluate(range_name)?;
-                let arr = match range_vals {
-                    Literals::Array(arr) => arr,
-                    _ => {
-                        self.report_err(var_name.clone(), format!("Cannot iterate over type '{}'", range_vals.to_string()));
-                        return Err(Interrupt::Error);
-                    }
-                };
-
                 let stmts = match &**body {
                     Stmt::Block(stmts) => stmts,
                     _ => {
@@ -767,31 +809,60 @@ impl StmtVisitor for Interpreter {
                     },
                 };
 
-                // Use loop with index to avoid having a reference to arr while executing `stmts`
-                let mut index = 0;
+                match range_vals {
+                    Literals::Array(arr) => {
 
-                loop {
-                    let item = match arr.borrow().get(index) {
-                        Some(item) => item.clone(),
-                        None => break,
-                    };
-                    // Reference to arr is dropped here
+                        // Use loop with index to avoid having a reference to arr while executing `stmts`
+                        let mut index = 0;
 
-                    let mut sub_env = Environment::new(Some(self.environment.clone()));
-                    sub_env.define(var_name.lexeme.clone(), item);
+                        loop {
+                            let item = match arr.borrow().get(index) {
+                                Some(item) => item.clone(),
+                                None => break,
+                            };
+                            // Reference to arr is dropped here
 
-                    if let Err(interrupt) = self.execute_block(&stmts, sub_env) {
-                        match interrupt {
-                            Interrupt::Break => return Ok(()),
-                            Interrupt::Continue => {},
-                            _ => return Err(interrupt),
+                            let mut sub_env = Environment::new(Some(self.environment.clone()));
+                            sub_env.define(var_name.lexeme.clone(), item);
+
+                            if let Err(interrupt) = self.execute_block(&stmts, sub_env) {
+                                match interrupt {
+                                    Interrupt::Break => return Ok(()),
+                                    Interrupt::Continue => {},
+                                    _ => return Err(interrupt),
+                                }
+                            }
+
+                            index += 1;
                         }
+
+                        Ok(())
+                    },
+
+                    Literals::Tuple(t) => {
+                        let tup = *t;
+
+                        for item in tup.iter() {
+                            let mut sub_env = Environment::new(Some(self.environment.clone()));
+                            sub_env.define(var_name.lexeme.clone(), item.clone());
+
+                            if let Err(interrupt) = self.execute_block(&stmts, sub_env) {
+                                match interrupt {
+                                    Interrupt::Break => return Ok(()),
+                                    Interrupt::Continue => {},
+                                    _ => return Err(interrupt),
+                                }
+                            }
+                        }
+
+                        Ok(())
                     }
 
-                    index += 1;
+                    _ => {
+                        self.report_err(var_name.clone(), format!("Cannot iterate over type '{}'", range_vals.to_string()));
+                        return Err(Interrupt::Error);
+                    }
                 }
-
-                Ok(())
             },
 
             Stmt::Function(name, params, body) => {
