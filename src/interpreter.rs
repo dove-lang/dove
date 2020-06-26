@@ -458,29 +458,16 @@ impl ExprVisitor for Interpreter {
             Expr::Get(object, name) => {
                 let expr = self.visit_expr(object)?;
 
-                match expr {
-                    Literals::Instance(instance) => {
-                        match DoveInstance::get(instance, &name.lexeme) {
-                            Some(value) => Ok(value.clone()),
-                            None => {
-                                self.error_handler.report(
-                                    name.line,
-                                    "".to_string(),
-                                    format!("Undefined property '{}'.", name.lexeme),
-                                );
-                                Err(Interrupt::Error)
-                            },
-                        }
-                    },
-                    _ => {
-                        // TODO: add properties for non-instance values? (ex. array.length)
+                match expr.as_object().get_property(&name.lexeme) {
+                    Ok(value) => Ok(value.clone()),
+                    Err(_) => {
                         self.error_handler.report(
                             name.line,
                             "".to_string(),
-                            format!("Cannot get property '{}' from a non-instance value.", name.lexeme),
+                            format!("Undefined property '{}'.", name.lexeme),
                         );
                         Err(Interrupt::Error)
-                    }
+                    },
                 }
             }
 
@@ -1085,10 +1072,11 @@ fn stringify(literal: Literals) -> String {
         Literals::Nil => "nil".to_string(),
         Literals::Function(function) => {
             let mut res = String::from("<fun (");
-            for param in function.params.iter() {
-                res.push_str(&param.lexeme);
-                res.push_str(", ");
-            }
+            // TODO: hmm
+            // for param in function.params.iter() {
+            //     res.push_str(&param.lexeme);
+            //     res.push_str(", ");
+            // }
             if res.len() > 9 { res.truncate(res.len() - 2); }
             res.push_str(")>");
 

@@ -9,6 +9,7 @@ use crate::dove_class::DoveInstance;
 use crate::constants::keywords;
 
 pub trait DoveCallable {
+    fn arity(&self) -> usize;
     fn call(&self, interpreter: &mut Interpreter, argument_vals: &Vec<Literals>) -> Literals;
 }
 
@@ -28,10 +29,6 @@ impl DoveFunction {
             body,
             closure,
         }
-    }
-
-    pub fn arity(&self) -> usize {
-        self.params.len()
     }
 
     /// Create a new function that is enclosed by a scope containing local `self` referencing `instance`.
@@ -60,5 +57,43 @@ impl DoveCallable for DoveFunction {
             Err(Interrupt::Return(return_val)) => return_val,
             _ => Literals::Nil,
         }
+    }
+
+    fn arity(&self) -> usize {
+        self.params.len()
+    }
+}
+
+pub struct BuiltinFunction<F>
+where
+    F: Fn(&Vec<Literals>) -> Literals
+{
+    arity: usize,
+    function: F,
+}
+
+impl<F> BuiltinFunction<F>
+where
+    F: Fn(&Vec<Literals>) -> Literals
+{
+    pub fn new(arity: usize, function: F) -> BuiltinFunction<F> {
+        BuiltinFunction {
+            arity,
+            function,
+        }
+    }
+}
+
+impl<F> DoveCallable for BuiltinFunction<F>
+where
+    F: Fn(&Vec<Literals>) -> Literals
+{
+    fn arity(&self) -> usize {
+        self.arity
+    }
+
+    fn call(&self, _: &mut Interpreter, argument_vals: &Vec<Literals>) -> Literals {
+        let f = &self.function;
+        f(argument_vals)
     }
 }

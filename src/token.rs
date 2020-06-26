@@ -2,8 +2,9 @@ use std::collections::HashMap;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use crate::dove_callable::DoveFunction;
+use crate::dove_callable::DoveCallable;
 use crate::dove_class::{DoveClass, DoveInstance};
+use crate::data_types::DoveObject;
 
 #[derive(Debug, Clone)]
 pub struct Token {
@@ -24,11 +25,6 @@ impl Token {
     }
 }
 
-impl Token {
-    pub fn to_string(&self) -> String {
-        format!("type: {:?}, lexeme: {:?}, literal: {:?}, line: {}", self.token_type, self.lexeme, self.literal, self.line)
-    }
-}
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 #[allow(non_camel_case_types)]
@@ -62,7 +58,7 @@ pub enum TokenType {
     EOF
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum Literals {
     Array(Rc<RefCell<Vec<Literals>>>),
     Dictionary(Rc<RefCell<HashMap<DictKey, Literals>>>),
@@ -71,9 +67,15 @@ pub enum Literals {
     Number(f64),
     Boolean(bool),
     Nil,
-    Function(Rc<DoveFunction>),
+    Function(Rc<dyn DoveCallable>),
     Class(Rc<DoveClass>),
     Instance(Rc<RefCell<DoveInstance>>),
+}
+
+impl std::fmt::Debug for Literals {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "TODO maybe")
+    }
 }
 
 impl Literals {
@@ -117,6 +119,13 @@ impl Literals {
         match self {
             Literals::Boolean(b) => Ok(b),
             _ => Err(())
+        }
+    }
+
+    pub fn as_object(&self) -> Box<dyn DoveObject> {
+        match self {
+            Literals::String(string) => Box::new(string.clone()),
+            _ => unimplemented!(),
         }
     }
 }

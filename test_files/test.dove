@@ -1,6 +1,2 @@
-import "./test_files/test1.dove"
-import "./test_files/test2.dove"
-
-make_human_greet("Eric")
-
-print "var from file 2: " + var_from_file_2
+print "hmm".length
+print "hello world".chars()
