@@ -6,6 +6,7 @@ use crate::environment::Environment;
 use crate::token::{Token, Literals};
 use crate::ast::*;
 use crate::dove_class::DoveInstance;
+use crate::constants::keywords;
 
 pub trait DoveCallable {
     fn call(&self, interpreter: &mut Interpreter, argument_vals: &Vec<Literals>) -> Literals;
@@ -36,7 +37,7 @@ impl DoveFunction {
     /// Create a new function that is enclosed by a scope containing local `self` referencing `instance`.
     pub fn bind(&self, instance: Rc<RefCell<DoveInstance>>) -> DoveFunction {
         let mut environment = Environment::new(Some(Rc::clone(&self.closure)));
-        environment.define("self".to_string(), Literals::Instance(instance));
+        environment.define(keywords::SELF.to_string(), Literals::Instance(instance));
         DoveFunction::new(self.params.clone(), self.body.clone(), Rc::new(RefCell::new(environment)))
     }
 }

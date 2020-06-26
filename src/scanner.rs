@@ -1,8 +1,6 @@
-use std::collections::HashMap;
-use lazy_static::lazy_static;
-
 use crate::token::*;
 use crate::error_handler::*;
+use crate::constants::keywords::KEYWORD_TOKENS;
 
 pub struct Scanner {
     source: Vec<char>,
@@ -146,7 +144,7 @@ impl Scanner {
 
         // Check if identifier is reserved.
         let lexeme_slice: String = self.source[self.start..self.current].iter().collect();
-        let token_type: TokenType = match KEYWORDS.get(&lexeme_slice) {
+        let token_type: TokenType = match KEYWORD_TOKENS.get(&lexeme_slice) {
             Some(v) => *v,
             None => TokenType::IDENTIFIER,
         };
@@ -241,36 +239,4 @@ impl Scanner {
         if self.current + 1 >= self.source.len() { return '\0'; }
         self.source[self.current + 1]
     }
-}
-
-lazy_static! {
-    static ref KEYWORDS: HashMap<String, TokenType> = {
-        let mut m = HashMap::new();
-        m.insert("and".to_string(), TokenType::AND);
-        m.insert("array".to_string(), TokenType::ARRAY);
-        m.insert("break".to_string(), TokenType::BREAK);
-        m.insert("class".to_string(), TokenType::CLASS);
-        m.insert("continue".to_string(), TokenType::CONTINUE);
-        m.insert("dict".to_string(), TokenType::DICT);
-        m.insert("else".to_string(), TokenType::ELSE);
-        m.insert("false".to_string(), TokenType::FALSE);
-        m.insert("fun".to_string(), TokenType::FUN);
-        m.insert("for".to_string(), TokenType::FOR);
-        m.insert("from".to_string(), TokenType::FROM);
-        m.insert("in".to_string(), TokenType::IN);
-        m.insert("if".to_string(), TokenType::IF);
-        m.insert("lambda".to_string(), TokenType::LAMBDA);
-        m.insert("let".to_string(), TokenType::LET);
-        m.insert("nil".to_string(), TokenType::NIL);
-        m.insert("not".to_string(), TokenType::NOT);
-        m.insert("or".to_string(), TokenType::OR);
-        m.insert("print".to_string(), TokenType::PRINT);
-        m.insert("return".to_string(), TokenType::RETURN);
-        m.insert("super".to_string(), TokenType::SUPER);
-        m.insert("self".to_string(), TokenType::SELF);
-        m.insert("true".to_string(), TokenType::TRUE);
-        m.insert("tuple".to_string(), TokenType::TUPLE);
-        m.insert("while".to_string(), TokenType::WHILE);
-        m
-    };
 }

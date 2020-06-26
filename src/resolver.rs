@@ -4,6 +4,7 @@ use crate::ast::{Expr, Stmt};
 use crate::token::Token;
 use crate::interpreter::Interpreter;
 use crate::error_handler::CompiletimeErrorHandler;
+use crate::constants::keywords;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 enum FunctionType {
@@ -80,11 +81,11 @@ impl<'a> Resolver<'a> {
 
                     // Begin scope to bind super
                     self.begin_scope();
-                    self.scopes.last_mut().unwrap().insert("super".to_string(), true);
+                    self.scopes.last_mut().unwrap().insert(keywords::SUPER.to_string(), true);
                 }
 
                 self.begin_scope();
-                self.scopes.last_mut().unwrap().insert("self".to_string(), true);
+                self.scopes.last_mut().unwrap().insert(keywords::SELF.to_string(), true);
 
                 // Set class type
                 let prev_class = self.current_class;
