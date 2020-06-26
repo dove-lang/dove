@@ -1,5 +1,4 @@
-use crate::scanner::Scanner;
-use crate::token::{Token, TokenType, Literals};
+use crate::token::{Token, TokenType};
 use crate::error_handler::CompiletimeErrorHandler;
 
 pub struct Importer {

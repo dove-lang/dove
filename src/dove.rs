@@ -55,7 +55,7 @@ impl Dove {
     pub fn run_prompt(mut self) {
         // Print version & time information.
         let date = Local::now();
-        cyan_ln!("Dove 0.0.1 (default, {})", date.format("%b %e %Y, %H:%M:%S"));
+        cyan_ln!("Dove 0.1.1 (default, {})", date.format("%b %e %Y, %H:%M:%S"));
         cyan_ln!("Visit https://github.com/dove-lang for more information.");
 
         // Used to store previous lines of code, if encounters unfinished blocks.
@@ -94,7 +94,7 @@ impl Dove {
     }
 
     fn run(mut self, source: Vec<char>, is_in_repl: bool) -> Self {
-        let mut scanner = Scanner::new(source);
+        let scanner = Scanner::new(source);
         let tokens = scanner.scan_tokens();
 
         let mut importer = Importer::new(tokens);

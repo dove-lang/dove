@@ -2,9 +2,7 @@ use std::collections::HashMap;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use crate::ast::{Stmt, Expr};
 use crate::dove_callable::DoveFunction;
-use crate::environment::Environment;
 use crate::dove_class::{DoveClass, DoveInstance};
 
 #[derive(Debug, Clone)]
