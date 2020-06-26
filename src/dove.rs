@@ -13,6 +13,9 @@ use crate::resolver::Resolver;
 pub struct Dove {
     interpreter: Interpreter,
     is_repl_unfinished: bool,
+
+    /// Keep track of what files this Dove has visited.
+    visited_imports: Vec<String>,
 }
 
 impl Dove {
@@ -20,6 +23,7 @@ impl Dove {
         Dove {
             interpreter: Interpreter::new(),
             is_repl_unfinished: false,
+            visited_imports: Vec::new(),
         }
     }
 
@@ -102,6 +106,12 @@ impl Dove {
 
         // Run the import files.
         for import in imports {
+            if self.visited_imports.contains(&import) {
+                e_red_ln!("Import Error: Cannot import file '{}'.", import);
+                process::exit(92);
+            }
+
+            self.visited_imports.push(import.clone());
             self = self.run_file(&import);
         }
 
