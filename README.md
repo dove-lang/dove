@@ -6,6 +6,20 @@
 
 <h2 align="center">A fast, minimal, and elegant programming language. 🕊️</h1>
 
+### Hello World 👋 🌎
+Dove:
+``` swift
+for name in ("foo", "bar") {
+    print "Hello! " + name
+}
+```
+
+Output:
+```
+"Hello! foo"
+"Hello! bar"
+```
+
 ### Documentation 📝
 Take a look at the Dove docs -> https://dove-lang.github.io/dove-docs/ 
 
@@ -18,7 +32,7 @@ To start using Dove, please follow these steps:
 ``` 
 cd [DIRECTORY]
 ```
-3 Run the REPL, or run a dove file directly.
+3. Run the REPL, or run a dove file directly.
 ```
 # Run REPL
 dove
@@ -35,7 +49,7 @@ dove example.dove
 cd [DIRECTORY]
 ```
 
-3 Run the REPL, or run a dove file directly.
+3. Run the REPL, or run a dove file directly.
 ```
 # Run REPL
 dove.exe
@@ -45,5 +59,5 @@ dove.exe example.dove
 ```
 
 ### License
-Apache-2.0 © [Eric Hua](https://github.com/huaqiwen) [Peter Ke](https://github.com/PeterKeDer)
+Apache-2.0 © [Eric Hua](https://github.com/huaqiwen), [Peter Ke](https://github.com/PeterKeDer)
 
