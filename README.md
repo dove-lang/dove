@@ -6,7 +6,17 @@
 
 <h2 align="center">A fast, minimal, and elegant programming language. 🕊️</h1>
 
-### Hello World 👋 🌎
+This is the main source code repository for the Dove Programming Language. I contains the interpreter and standard library.
+
+### Contents 📦
+1. [Hello World](#hello-world)
+2. [Documentation](#documentation)
+3. [Usage](#usage)
+    1. [Linux](#usage-linux)
+    2. [Windows](#usage-windows)
+4. [License](#license)
+
+### Hello World 👋 🌎 <a name="hello-world">
 Dove:
 ``` swift
 for name in ("foo", "bar") {
@@ -20,13 +30,13 @@ Output:
 "Hello! bar"
 ```
 
-### Documentation 📝
+### Documentation 📝 <a name="documentation"></a>
 Take a look at the Dove docs -> https://dove-lang.github.io/dove-docs/ 
 
-### Usage 🏃
+### Usage 🏃 <a name="usage"></a>
 To start using Dove, please follow these steps:
 
-#### Linux
+#### Linux <a name="usage-linux"></a>
 1. Install the Dove interpreter binary -> [v0.1.0](https://github.com/dove-lang/dove/releases/download/v0.1.0/dove)
 2. Navigate to the file directory.
 ``` 
@@ -41,7 +51,7 @@ dove
 dove example.dove
 ```
 
-#### Windows
+#### Windows <a name="usage-windows"></a>
 1. Install the Dove interpreter binary -> [v0.1.0](https://github.com/dove-lang/dove/releases/download/v0.1.0/dove.exe)
 
 2. Navigate to the file directory.
@@ -58,6 +68,6 @@ dove.exe
 dove.exe example.dove
 ```
 
-### License
+### License<a name="license"></a>
 Apache-2.0 © [Eric Hua](https://github.com/huaqiwen), [Peter Ke](https://github.com/PeterKeDer)
 
