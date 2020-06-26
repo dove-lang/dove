@@ -1,4 +1,4 @@
-import "./test_files/test2.dove"
+import "./test_files/test.dove"
 
 let human = Human()
 
