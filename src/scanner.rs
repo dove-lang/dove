@@ -24,7 +24,7 @@ impl Scanner {
 }
 
 impl Scanner {
-    pub fn scan_tokens(&mut self) -> &Vec<Token> {
+    pub fn scan_tokens(mut self) -> Vec<Token> {
         while !self.is_at_end() && !self.error_handler.had_error {
             // At the beginning of the next lexeme.
             self.start = self.current;
@@ -38,7 +38,7 @@ impl Scanner {
             self.line
         ));
 
-        &self.tokens
+        self.tokens
     }
 
     fn scan_token(&mut self) {

@@ -4,7 +4,8 @@ use std::io::{ErrorKind, Read, Write};
 
 use chrono::prelude::*;
 
-use crate::scanner::*;
+use crate::scanner::Scanner;
+use crate::importer::Importer;
 use crate::interpreter::Interpreter;
 use crate::parser::Parser;
 use crate::resolver::Resolver;
@@ -22,7 +23,7 @@ impl Dove {
         }
     }
 
-    pub fn run_file(self, path: &String) {
+    pub fn run_file(mut self, path: &String) -> Self {
         let mut f = match File::open(path) {
             Ok(file) => file,
             Err(error) => match error.kind() {
@@ -31,7 +32,7 @@ impl Dove {
                     process::exit(53);
                 },
                 _ => {
-                    e_red_ln!("Error while reading file: {}", path);
+                    e_red_ln!("Error while reading file: {} {:?}", path, error);
                     process::exit(75);
                 }
             }
@@ -46,7 +47,9 @@ impl Dove {
             }
         }
 
-        self.run(content.chars().collect(), false);
+        self = self.run(content.chars().collect(), false);
+
+        self
     }
 
     pub fn run_prompt(mut self) {
@@ -59,7 +62,7 @@ impl Dove {
         let mut code_buffer = String::new();
 
         loop {
-            let mut indicator = format!("{} ", if self.is_repl_unfinished {"..."} else {">>>"});
+            let indicator = format!("{} ", if self.is_repl_unfinished {"..."} else {">>>"});
             print!("{}", indicator);
 
             let mut input = String::new();
@@ -94,7 +97,15 @@ impl Dove {
         let mut scanner = Scanner::new(source);
         let tokens = scanner.scan_tokens();
 
-        let mut parser = Parser::new(tokens.to_owned(), is_in_repl);
+        let mut importer = Importer::new(tokens);
+        let (tokens, imports) = importer.analyze();
+
+        // Run the import files.
+        for import in imports {
+            self = self.run_file(&import);
+        }
+
+        let mut parser = Parser::new(tokens, is_in_repl);
         let statements = parser.program();
 
         // Check if unfinished status change.
