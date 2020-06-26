@@ -2,9 +2,7 @@ use std::collections::HashMap;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use crate::ast::{Stmt, Expr};
 use crate::dove_callable::DoveFunction;
-use crate::environment::Environment;
 use crate::dove_class::{DoveClass, DoveInstance};
 
 #[derive(Debug, Clone)]
@@ -57,7 +55,7 @@ pub enum TokenType {
     IDENTIFIER, STRING, NUMBER,
 
     // Keywords.
-    AND, BREAK, CLASS, CONTINUE, ELSE, FALSE, FUN, FOR, FROM, IN, IF, LAMBDA, LET, NIL, NOT, OR,
+    AND, BREAK, CLASS, CONTINUE, ELSE, FALSE, FUN, FOR, FROM, IMPORT, IN, IF, LAMBDA, LET, NIL, NOT, OR,
     PRINT, RETURN, SUPER, SELF, TRUE, WHILE,
 
     // End of file.

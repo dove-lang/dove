@@ -1,0 +1,7 @@
+import "./test_files/test2.dove"
+
+let human = Human()
+
+fun make_human_greet(name) {
+    human.greet(name)
+}

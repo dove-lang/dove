@@ -33,6 +33,7 @@ keywords! {
     "fun"       => FUN,
     "for"       => FOR,
     "from"      => FROM,
+    "import"    => IMPORT,
     "in"        => IN,
     "if"        => IF,
     "lambda"    => LAMBDA,

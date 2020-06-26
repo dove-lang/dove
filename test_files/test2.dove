@@ -1,0 +1,7 @@
+let var_from_file_2 = "file2"
+
+class Human {
+    fun greet(name) {
+        print "Hi! " + name
+    }
+}
