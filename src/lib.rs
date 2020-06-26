@@ -4,6 +4,7 @@ extern crate chrono;
 
 pub mod dove;
 
+pub mod constants;
 pub mod scanner;
 pub mod token;
 pub mod ast;

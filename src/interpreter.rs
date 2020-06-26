@@ -8,6 +8,7 @@ use crate::error_handler::*;
 use crate::dove_callable::*;
 use crate::dove_class::{DoveClass, DoveInstance};
 use crate::environment::Environment;
+use crate::constants::keywords;
 
 /// An enum indicating that execution was interrupted, for some reason.
 #[derive(Debug, Clone)]
@@ -719,7 +720,7 @@ impl ExprVisitor for Interpreter {
 
                 // TODO: find a more "elegant" solution. If so, remember to change visit super/self in resolver
                 // TODO: consider for static methods?
-                let maybe_instance = self.environment.borrow().get_at(distance - 1, "self");
+                let maybe_instance = self.environment.borrow().get_at(distance - 1, &keywords::SELF);
                 let instance = match maybe_instance {
                     Some(Literals::Instance(instance)) => instance,
                     _ => {
@@ -826,7 +827,7 @@ impl StmtVisitor for Interpreter {
                     if let Some(superclass) = &superclass {
                         environment = Rc::new(RefCell::new(Environment::new(Some(environment))));
                         environment.borrow_mut().define(
-                            "super".to_string(),
+                            keywords::SUPER.to_string(),
                             Literals::Class(Rc::clone(superclass)),
                         );
                     }
