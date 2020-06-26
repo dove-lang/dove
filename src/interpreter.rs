@@ -256,9 +256,31 @@ impl ExprVisitor for Interpreter {
                         match (left_val, right_val) {
                             (Literals::Number(l), Literals::Number(r)) => Ok(Literals::Number(l + r)),
                             (Literals::String(l), Literals::String(r)) => Ok(Literals::String(format!("{}{}", l, r))),
+                            (Literals::Array(l), Literals::Array(r)) => {
+                                let mut res = Vec::new();
+                                for val in l.borrow().iter() {
+                                    res.push(val.clone());
+                                }
+                                for val in r.borrow().iter() {
+                                    res.push(val.clone());
+                                }
+
+                                Ok(Literals::Array(Rc::new(RefCell::new(res))))
+                            }
+                            (Literals::Tuple(l), Literals::Tuple(r)) => {
+                                let mut res = Vec::new();
+                                for val in *l {
+                                    res.push(val);
+                                }
+                                for val in *r {
+                                    res.push(val);
+                                }
+
+                                Ok(Literals::Tuple(Box::new(res)))
+                            }
                             _ => {
                                 self.report_err(operator.clone(),
-                                                format!("Operands of '{}' must be two numbers or two strings.", operator.lexeme));
+                                                format!("Operands of '{}' must be two numbers/strings/arrays/tuples.", operator.lexeme));
                                 Err(Interrupt::Error)
                             },
                         }
