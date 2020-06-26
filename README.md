@@ -69,5 +69,5 @@ dove.exe example.dove
 ```
 
 ### License<a name="license"></a>
-Apache-2.0 © [Eric Hua](https://github.com/huaqiwen), [Peter Ke](https://github.com/PeterKeDer)
+GPL-3.0 © [Eric Hua](https://github.com/huaqiwen), [Peter Ke](https://github.com/PeterKeDer)
 
