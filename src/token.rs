@@ -127,6 +127,7 @@ impl Literals {
             Literals::String(string) => Box::new(string.clone()),
             Literals::Instance(instance) => Box::new(Rc::clone(instance)),
             Literals::Array(array) => Box::new(Rc::clone(array)),
+            Literals::Dictionary(dict) => Box::new(Rc::clone(dict)),
             _ => unimplemented!(),
         }
     }
