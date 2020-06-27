@@ -25,6 +25,6 @@ fn string_chars(string: &str) -> impl DoveCallable {
             .map(Literals::String)
             .collect();
 
-        Literals::Array(Rc::new(RefCell::new(char_literals)))
+        Ok(Literals::Array(Rc::new(RefCell::new(char_literals))))
     })
 }

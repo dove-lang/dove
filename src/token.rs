@@ -106,10 +106,10 @@ impl Literals {
             _ =>Err(())
         }
     }
-    pub fn unwrap_int(self) -> Result<usize, ()> {
+    pub fn unwrap_usize(self) -> Result<usize, ()> {
         match self.unwrap_number() {
             Ok(n) => {
-                if n.fract() != 0.0 { return Err(()); }
+                if n.fract() != 0.0 || n < 0.0 { return Err(()); }
                 return Ok(n as usize);
             },
             Err(_) => Err(())
@@ -135,7 +135,7 @@ impl Literals {
 #[derive(Debug, Clone, Hash)]
 pub enum DictKey {
     StringKey(String),
-    NumberKey(usize),
+    NumberKey(isize),
 }
 
 impl DictKey {

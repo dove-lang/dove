@@ -23,7 +23,7 @@ fn array_append(array: &Rc<RefCell<Vec<Literals>>>) -> impl DoveCallable {
 
     BuiltinFunction::new(1, move |args| {
         array.borrow_mut().push(args[0].clone());
-        Literals::Nil
+        Ok(Literals::Nil)
     })
 }
 
@@ -32,8 +32,8 @@ fn array_pop(array: &Rc<RefCell<Vec<Literals>>>) -> impl DoveCallable {
 
     BuiltinFunction::new(0, move |_| {
         match array.borrow_mut().pop() {
-            Some(v) => v,
-            None => Literals::Nil,
+            Some(v) => Ok(v),
+            None => Ok(Literals::Nil),
         }
     })
 }
@@ -56,6 +56,6 @@ fn array_remove(array: &Rc<RefCell<Vec<Literals>>>) -> impl DoveCallable {
             panic!("Invalid index.");
         }
 
-        array.borrow_mut().remove(index)
+        Ok(array.borrow_mut().remove(index))
     })
 }

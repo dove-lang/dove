@@ -21,7 +21,7 @@ impl RuntimeErrorHandler {
 
     pub fn runtime_error(&mut self, error: RuntimeError) {
         self.had_runtime_error = true;
-        self.report(error.token.line, "".to_string(), error.message);
+        self.report(error.location.line(), "".to_string(), error.message);
     }
 }
 
@@ -54,18 +54,33 @@ impl CompiletimeErrorHandler {
 
 impl ErrorHandler for CompiletimeErrorHandler {}
 
+#[derive(Debug, Clone)]
+pub enum ErrorLocation {
+    Token(Token),
+    Line(usize),
+}
+
+impl ErrorLocation {
+    pub fn line(&self) -> usize {
+        match self {
+            ErrorLocation::Token(token) => token.line,
+            ErrorLocation::Line(line) => *line,
+        }
+    }
+}
 
 /// RuntimeError struct used to structure information of
 /// a runtime error.
+#[derive(Debug, Clone)]
 pub struct RuntimeError {
-    token: Token,
-    message: String,
+    pub location: ErrorLocation,
+    pub message: String,
 }
 
 impl RuntimeError {
-    pub fn new(token: Token, message: String) -> Self {
+    pub fn new(location: ErrorLocation, message: String) -> Self {
         RuntimeError {
-            token,
+            location,
             message,
         }
     }
