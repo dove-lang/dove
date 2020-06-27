@@ -2,6 +2,7 @@ use crate::token::Literals;
 
 pub mod string;
 pub mod array;
+pub mod dict;
 pub mod instance;
 
 // TODO: add more errors?
