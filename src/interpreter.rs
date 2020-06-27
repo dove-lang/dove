@@ -1070,7 +1070,7 @@ fn stringify(literal: Literals) -> String {
         Literals::Number(n) => n.to_string(),
         Literals::Boolean(b) => b.to_string(),
         Literals::Nil => "nil".to_string(),
-        Literals::Function(function) => {
+        Literals::Function(_function) => {
             let mut res = String::from("<fun (");
             // TODO: hmm
             // for param in function.params.iter() {
