@@ -329,7 +329,16 @@ impl Parser {
         if self.consume(TokenType::LAMBDA).is_ok() {
             let parameters = self.parameters()?;
             self.consume(TokenType::MINUS_GREATER)?;
-            let stmt = self.block()?;
+
+            // Support both block statement (with braces) and
+            // single-line statement (without braces)
+            let stmt;
+            if self.check(TokenType::LEFT_BRACE) {
+                stmt = self.block()?;
+            } else {
+                let temp = self.statement()?;
+                stmt = Stmt::Block(vec![temp]);
+            }
 
             let res = Expr::Lambda(parameters, Box::new(stmt));
             // println!("{:?}", &res);
