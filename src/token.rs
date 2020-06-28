@@ -103,7 +103,7 @@ impl Literals {
     pub fn unwrap_number(self) -> Result<f64, ()> {
         match self {
             Literals::Number(n) => Ok(n),
-            _ =>Err(())
+            _ => Err(())
         }
     }
     pub fn unwrap_usize(self) -> Result<usize, ()> {

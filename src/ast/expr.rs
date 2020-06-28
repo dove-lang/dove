@@ -22,11 +22,3 @@ pub enum Expr {
     Unary      (Token, Box<Expr>),
     Variable   (Token),
 }
-
-impl Expr {
-    /// Return the first token that the expression contains
-    pub fn first_token(&self) -> Token {
-        // TODO
-        unimplemented!()
-    }
-}

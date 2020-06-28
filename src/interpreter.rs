@@ -52,12 +52,7 @@ impl Interpreter {
             // As this function should only be used by Dove struct,
             // no return value should be expected.
             self.execute(stmt).unwrap_or_else(|interrupt| match interrupt {
-                Interrupt::Error(error) => self.error_handler.report(
-                    error.location.line(),
-                    // TODO
-                    "".to_string(),
-                    error.message,
-                ),
+                Interrupt::Error(error) => self.error_handler.runtime_error(error),
                 _ => {
                     e_red_ln!("Unexpected interrupt: {:?}", interrupt);
                 },
@@ -372,7 +367,7 @@ impl ExprVisitor for Interpreter {
                                 )));
                             }
 
-                            bound_init.call(self, &argument_vals);
+                            bound_init.call(self, &argument_vals)?;
                         }
 
                         Ok(Literals::Instance(instance))
@@ -409,9 +404,9 @@ impl ExprVisitor for Interpreter {
                         Literals::Number(key) if key.fract() != 0.0 =>{
                             dict_val.insert(DictKey::NumberKey(key as isize), val);
                         },
-                        // TODO: add token in error when finished Expr.first_token
+
                         _ => return Err(Interrupt::Error(RuntimeError::new(
-                            ErrorLocation::Line(420),
+                            ErrorLocation::Unspecified,
                             "Only String and Integer can be used as dictionary key.".to_string(),
                         ))),
                     };
@@ -464,14 +459,13 @@ impl ExprVisitor for Interpreter {
                         match evaluated_index.unwrap_usize() {
                             Ok(n) => match arr.borrow().get(n) {
                                 Some(v) => Ok(v.clone()),
-                                // TODO
                                 None => Err(Interrupt::Error(RuntimeError::new(
-                                    ErrorLocation::Line(420),
+                                    ErrorLocation::Unspecified,
                                     format!("Index '{}' out of range.", n),
                                 ))),
                             },
                             Err(_) => Err(Interrupt::Error(RuntimeError::new(
-                                ErrorLocation::Line(420),
+                                ErrorLocation::Unspecified,
                                 "Index must be an integer.".to_string(),
                             ))),
                         }
@@ -480,14 +474,13 @@ impl ExprVisitor for Interpreter {
                         match evaluated_index.unwrap_usize() {
                             Ok(n) => match tup.get(n) {
                                 Some(v) => Ok(v.clone()),
-                                // TODO
                                 None => Err(Interrupt::Error(RuntimeError::new(
-                                    ErrorLocation::Line(420),
+                                    ErrorLocation::Unspecified,
                                     format!("Index '{}' out of range.", n),
                                 ))),
                             },
                             Err(_) => Err(Interrupt::Error(RuntimeError::new(
-                                ErrorLocation::Line(420),
+                                ErrorLocation::Unspecified,
                                 "Index must be an integer.".to_string(),
                             ))),
                         }
@@ -497,7 +490,7 @@ impl ExprVisitor for Interpreter {
                             Literals::Number(i) if i.fract() != 0.0 => DictKey::NumberKey(i as isize),
                             Literals::String(s) => DictKey::StringKey(s.clone()),
                             _ => return Err(Interrupt::Error(RuntimeError::new(
-                                ErrorLocation::Line(420),
+                                ErrorLocation::Unspecified,
                                 "Index must be an integer/string.".to_string(),
                             ))),
                         };
@@ -505,13 +498,13 @@ impl ExprVisitor for Interpreter {
                         match dict.borrow().get(&dict_key) {
                             Some(v) => Ok(v.clone()),
                             None => Err(Interrupt::Error(RuntimeError::new(
-                                ErrorLocation::Line(420),
+                                ErrorLocation::Unspecified,
                                 format!("Key '{}' not found.", dict_key.stringify()),
                             )))
                         }
                     },
                     _ => Err(Interrupt::Error(RuntimeError::new(
-                        ErrorLocation::Line(420),
+                        ErrorLocation::Unspecified,
                         format!("Cannot get value by index/key from '{}'.", evaluated_expr.to_string()),
                     ))),
                 }
@@ -528,9 +521,8 @@ impl ExprVisitor for Interpreter {
                             Ok(n) => {
                                 let old_val = match arr.borrow().get(n) {
                                     Some(v) => v.clone(),
-                                    // TODO
                                     None => return Err(Interrupt::Error(RuntimeError::new(
-                                        ErrorLocation::Line(420),
+                                        ErrorLocation::Unspecified,
                                         format!("Index '{}' out of range.", n),
                                     ))),
                                 };
@@ -539,7 +531,7 @@ impl ExprVisitor for Interpreter {
                                 Ok(old_val)
                             },
                             Err(_) => Err(Interrupt::Error(RuntimeError::new(
-                                ErrorLocation::Line(420),
+                                ErrorLocation::Unspecified,
                                 "Index must be an integer.".to_string(),
                             ))),
                         }
@@ -549,7 +541,7 @@ impl ExprVisitor for Interpreter {
                             Literals::Number(i) if i.fract() != 0.0 => DictKey::NumberKey(i as isize),
                             Literals::String(s) => DictKey::StringKey(s.clone()),
                             _ => return Err(Interrupt::Error(RuntimeError::new(
-                                ErrorLocation::Line(420),
+                                ErrorLocation::Unspecified,
                                 "Index must be an integer/string.".to_string(),
                             ))),
                         };
@@ -562,7 +554,7 @@ impl ExprVisitor for Interpreter {
                         Ok(old_val)
                     }
                     _ => Err(Interrupt::Error(RuntimeError::new(
-                        ErrorLocation::Line(420),
+                        ErrorLocation::Unspecified,
                         format!("Cannot set value by index/key from '{}'.", evaluated_expr.to_string()),
                     ))),
                 }
@@ -634,8 +626,7 @@ impl ExprVisitor for Interpreter {
                 let instance = match maybe_instance {
                     Some(Literals::Instance(instance)) => instance,
                     _ => return Err(Interrupt::Error(RuntimeError::new(
-                        // TODO
-                        ErrorLocation::Line(420),
+                        ErrorLocation::Line(token.line),
                         "Cannot find 'self' in the scope".to_string(),
                     ))),
                 };

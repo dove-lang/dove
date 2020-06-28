@@ -3,8 +3,12 @@ use crate::token::*;
 /// All ErrorHandlers should implement this trait
 /// and use its `report` method to display error messages.
 pub trait ErrorHandler {
-    fn report(&mut self, line: usize, where_: String, message: String) {
-        e_red_ln!("[line {}] Error{}: {}", line, where_, message);
+    fn report(&mut self, line: Option<usize>, where_: String, message: String) {
+        if let Some(line) = line {
+            e_red_ln!("[line {}] Error{}: {}", line, where_, message);
+        } else {
+            e_red_ln!("Error: {}",message);
+        }
     }
 }
 
@@ -21,7 +25,14 @@ impl RuntimeErrorHandler {
 
     pub fn runtime_error(&mut self, error: RuntimeError) {
         self.had_runtime_error = true;
-        self.report(error.location.line(), "".to_string(), error.message);
+        self.report(
+            error.location.line(),
+            match error.location {
+                ErrorLocation::Token(token) => format!(" at '{}'", token.lexeme),
+                _ => "".to_string(),
+            },
+            error.message,
+        );
     }
 }
 
@@ -40,14 +51,14 @@ impl CompiletimeErrorHandler {
 
     pub fn line_error(&mut self, line: usize, message: String) {
         self.had_error = true;
-        self.report(line, "".to_string(), message);
+        self.report(Some(line), "".to_string(), message);
     }
 
     pub fn token_error(&mut self, token: Token, message: String) {
         self.had_error = true;
         match token.token_type {
-            TokenType::EOF => self.report(token.line, " at end".to_string(), message),
-            _ => self.report(token.line, format!(" at '{}'", token.lexeme), message),
+            TokenType::EOF => self.report(Some(token.line), " at end".to_string(), message),
+            _ => self.report(Some(token.line), format!(" at '{}'", token.lexeme), message),
         }
     }
 }
@@ -58,13 +69,16 @@ impl ErrorHandler for CompiletimeErrorHandler {}
 pub enum ErrorLocation {
     Token(Token),
     Line(usize),
+    // TODO: maybe remove this after adding token to all ASTs
+    Unspecified,
 }
 
 impl ErrorLocation {
-    pub fn line(&self) -> usize {
+    pub fn line(&self) -> Option<usize> {
         match self {
-            ErrorLocation::Token(token) => token.line,
-            ErrorLocation::Line(line) => *line,
+            ErrorLocation::Token(token) => Some(token.line),
+            ErrorLocation::Line(line) => Some(*line),
+            _ => None,
         }
     }
 }
