@@ -9,14 +9,30 @@ use crate::token::Literals;
 impl DoveObject for Rc<RefCell<Vec<Literals>>> {
     fn get_property(&mut self, name: &str) -> Result<Literals> {
         match name {
-            "length" => Ok(Literals::Number(self.borrow().len() as f64)),
-            "empty" => Ok(Literals::Boolean(self.borrow().len() == 0)),
+            "len" => Ok(Literals::Function(Rc::new(array_len(self)))),
+            "is_empty" => Ok(Literals::Function(Rc::new(array_is_empty(self)))),
             "push" => Ok(Literals::Function(Rc::new(array_append(self)))),
             "pop" => Ok(Literals::Function(Rc::new(array_pop(self)))),
             "remove" => Ok(Literals::Function(Rc::new(array_remove(self)))),
             _ => Err(Error::CannotGetProperty),
         }
     }
+}
+
+fn array_len(array: &Rc<RefCell<Vec<Literals>>>) -> impl DoveCallable {
+    let array = Rc::clone(array);
+
+    BuiltinFunction::new(0, move |_| {
+        Ok(Literals::Number(array.borrow().len() as f64))
+    })
+}
+
+fn array_is_empty(array: &Rc<RefCell<Vec<Literals>>>) -> impl DoveCallable {
+    let array = Rc::clone(array);
+
+    BuiltinFunction::new(0, move |_| {
+        Ok(Literals::Boolean(array.borrow().len() == 0))
+    })
 }
 
 fn array_append(array: &Rc<RefCell<Vec<Literals>>>) -> impl DoveCallable {
