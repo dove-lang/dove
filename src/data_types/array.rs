@@ -2,6 +2,7 @@ use std::rc::Rc;
 use std::cell::RefCell;
 
 use crate::data_types::*;
+use crate::error_handler::{RuntimeError, ErrorLocation};
 use crate::dove_callable::{DoveCallable, BuiltinFunction};
 use crate::token::Literals;
 
@@ -23,7 +24,7 @@ fn array_append(array: &Rc<RefCell<Vec<Literals>>>) -> impl DoveCallable {
 
     BuiltinFunction::new(1, move |args| {
         array.borrow_mut().push(args[0].clone());
-        Literals::Nil
+        Ok(Literals::Nil)
     })
 }
 
@@ -32,8 +33,8 @@ fn array_pop(array: &Rc<RefCell<Vec<Literals>>>) -> impl DoveCallable {
 
     BuiltinFunction::new(0, move |_| {
         match array.borrow_mut().pop() {
-            Some(v) => v,
-            None => Literals::Nil,
+            Some(v) => Ok(v),
+            None => Ok(Literals::Nil),
         }
     })
 }
@@ -42,20 +43,21 @@ fn array_remove(array: &Rc<RefCell<Vec<Literals>>>) -> impl DoveCallable {
     let array = Rc::clone(array);
 
     BuiltinFunction::new(1, move |args| {
-        // TODO: Add better error handling.
-        let index = args[0].clone().unwrap_number().unwrap_or_else(|_| {
-            panic!("Invalid index.");
-        });
+        let index = match args[0].clone().unwrap_usize() {
+            Ok(i) => i,
+            _ => return Err(RuntimeError::new(
+                ErrorLocation::Unspecified,
+                "Index must be an integer.".to_string(),
+            )),
+        };
 
-        if index.fract() != 0.0 || index < 0.0 {
-            panic!("Invalid index.");
-        }
-
-        let index = index as usize;
         if index >= array.borrow().len() {
-            panic!("Invalid index.");
+            return Err(RuntimeError::new(
+                ErrorLocation::Unspecified,
+                "Index out of range.".to_string(),
+            ));
         }
 
-        array.borrow_mut().remove(index)
+        Ok(array.borrow_mut().remove(index))
     })
 }

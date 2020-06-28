@@ -7,10 +7,11 @@ use crate::token::{Token, Literals};
 use crate::ast::*;
 use crate::dove_class::DoveInstance;
 use crate::constants::keywords;
+use crate::error_handler::{RuntimeError, ErrorLocation};
 
 pub trait DoveCallable {
     fn arity(&self) -> usize;
-    fn call(&self, interpreter: &mut Interpreter, argument_vals: &Vec<Literals>) -> Literals;
+    fn call(&self, interpreter: &mut Interpreter, argument_vals: &Vec<Literals>) -> Result<Literals, RuntimeError>;
 }
 
 #[derive(Debug)]
@@ -40,7 +41,7 @@ impl DoveFunction {
 }
 
 impl DoveCallable for DoveFunction {
-    fn call(&self, interpreter: &mut Interpreter, argument_vals: &Vec<Literals>) -> Literals {
+    fn call(&self, interpreter: &mut Interpreter, argument_vals: &Vec<Literals>) -> Result<Literals, RuntimeError> {
         let mut environment = Environment::new(Some(self.closure.clone()));
 
         for i in 0..self.params.len() {
@@ -53,9 +54,9 @@ impl DoveCallable for DoveFunction {
         };
 
         match interpreter.execute_implicit_return(statements, environment) {
-            Ok(implicit_return_val) => implicit_return_val,
-            Err(Interrupt::Return(return_val)) => return_val,
-            _ => Literals::Nil,
+            Ok(implicit_return_val) => Ok(implicit_return_val),
+            Err(Interrupt::Return(return_val)) => Ok(return_val),
+            Err(_) => Err(RuntimeError::new(ErrorLocation::Line(10), format!("todo"))),
         }
     }
 
@@ -66,7 +67,7 @@ impl DoveCallable for DoveFunction {
 
 pub struct BuiltinFunction<F>
 where
-    F: Fn(&Vec<Literals>) -> Literals
+    F: Fn(&Vec<Literals>) -> Result<Literals, RuntimeError>
 {
     arity: usize,
     function: F,
@@ -74,7 +75,7 @@ where
 
 impl<F> BuiltinFunction<F>
 where
-    F: Fn(&Vec<Literals>) -> Literals
+    F: Fn(&Vec<Literals>) -> Result<Literals, RuntimeError>
 {
     pub fn new(arity: usize, function: F) -> BuiltinFunction<F> {
         BuiltinFunction {
@@ -86,13 +87,13 @@ where
 
 impl<F> DoveCallable for BuiltinFunction<F>
 where
-    F: Fn(&Vec<Literals>) -> Literals
+    F: Fn(&Vec<Literals>) -> Result<Literals, RuntimeError>
 {
     fn arity(&self) -> usize {
         self.arity
     }
 
-    fn call(&self, _: &mut Interpreter, argument_vals: &Vec<Literals>) -> Literals {
+    fn call(&self, _: &mut Interpreter, argument_vals: &Vec<Literals>) -> Result<Literals, RuntimeError> {
         let f = &self.function;
         f(argument_vals)
     }

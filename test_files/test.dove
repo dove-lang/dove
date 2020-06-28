@@ -1,2 +1,8 @@
 print "hmm".length
 print "hello world".chars()
+
+let arr = [1,2,3]
+arr.remove(1)
+print arr
+arr.remove(3)
+arr.remove("hmm")

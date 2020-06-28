@@ -6,6 +6,7 @@ pub mod dict;
 pub mod instance;
 
 // TODO: add more errors?
+// TODO: or just use Option instead?
 pub enum Error {
     CannotGetProperty,
     CannotSetProperty,
