@@ -3,6 +3,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 
 use crate::data_types::*;
+use crate::error_handler::{RuntimeError, ErrorLocation};
 use crate::dove_callable::{DoveCallable, BuiltinFunction};
 use crate::token::{Literals, DictKey};
 
@@ -31,7 +32,7 @@ fn dict_keys(dict: &Rc<RefCell<HashMap<DictKey, Literals>>>) -> impl DoveCallabl
             }
         }
 
-        Literals::Array(Rc::new(RefCell::new(res_raw)))
+        Ok(Literals::Array(Rc::new(RefCell::new(res_raw))))
     })
 }
 
@@ -45,7 +46,7 @@ fn dict_values(dict: &Rc<RefCell<HashMap<DictKey, Literals>>>) -> impl DoveCalla
             res_raw.push(val.clone());
         }
 
-        Literals::Array(Rc::new(RefCell::new(res_raw)))
+        Ok(Literals::Array(Rc::new(RefCell::new(res_raw))))
     })
 }
 
@@ -58,18 +59,16 @@ fn dict_remove(dict: &Rc<RefCell<HashMap<DictKey, Literals>>>) -> impl DoveCalla
         // Convert key to DictKey type.
         let dict_key = match key {
             Literals::String(s) => DictKey::StringKey(s),
-            Literals::Number(n) => {
-                if n.fract() != 0.0 { panic!("Expected an integer key. "); }
-                DictKey::NumberKey(n as usize)
-            },
-            _ => {
-                panic!("Expected a string or an integer key.")
-            }
+            Literals::Number(n) if n.fract() != 0.0 => DictKey::NumberKey(n as isize),
+            _ => return Err(RuntimeError::new(
+                ErrorLocation::Unspecified,
+                "Expected a string or an integer key.".to_string(),
+            ))
         };
 
         match dict.borrow_mut().remove(&dict_key) {
-            Some(v) => v,
-            None => Literals::Nil,
+            Some(v) => Ok(v),
+            None => Ok(Literals::Nil),
         }
     })
 }
