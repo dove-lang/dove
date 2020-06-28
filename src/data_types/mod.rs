@@ -1,5 +1,6 @@
 use crate::token::Literals;
 
+pub mod number;
 pub mod string;
 pub mod array;
 pub mod dict;

@@ -10,13 +10,21 @@ use crate::token::{Literals, DictKey};
 impl DoveObject for Rc<RefCell<HashMap<DictKey, Literals>>> {
     fn get_property(&mut self, name: &str) -> Result<Literals> {
         match name {
-            "length" => Ok(Literals::Number(self.borrow().len() as f64)),
+            "len" => Ok(Literals::Function(Rc::new(dict_len(self)))),
             "keys" => Ok(Literals::Function(Rc::new(dict_keys(self)))),
             "values" => Ok(Literals::Function(Rc::new(dict_values(self)))),
             "remove" => Ok(Literals::Function(Rc::new(dict_remove(self)))),
             _ => Err(Error::CannotGetProperty),
         }
     }
+}
+
+fn dict_len(dict: &Rc<RefCell<HashMap<DictKey, Literals>>>) -> impl DoveCallable {
+    let dict = Rc::clone(dict);
+
+    BuiltinFunction::new(0, move |_| {
+        Ok(Literals::Number(dict.borrow().len() as f64))
+    })
 }
 
 fn dict_keys(dict: &Rc<RefCell<HashMap<DictKey, Literals>>>) -> impl DoveCallable {

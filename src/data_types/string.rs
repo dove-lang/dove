@@ -8,12 +8,19 @@ use crate::token::Literals;
 impl DoveObject for String {
     fn get_property(&mut self, name: &str) -> Result<Literals> {
         match name {
-            "length" => Ok(Literals::Number(self.len() as f64)),
-            // "chars" => Ok(Literals::Function(Rc::new(StringChars { string: self.clone() }))),
+            "len" => Ok(Literals::Function(Rc::new(string_len(self)))),
             "chars" => Ok(Literals::Function(Rc::new(string_chars(self)))),
             _ => Err(Error::CannotGetProperty),
         }
     }
+}
+
+fn string_len(string: &str) -> impl DoveCallable {
+    let string = string.to_string();
+
+    BuiltinFunction::new(0, move |_| {
+        Ok(Literals::Number(string.len() as f64))
+    })
 }
 
 fn string_chars(string: &str) -> impl DoveCallable {

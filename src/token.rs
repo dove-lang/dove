@@ -124,6 +124,7 @@ impl Literals {
 
     pub fn as_object(&self) -> Box<dyn DoveObject> {
         match self {
+            Literals::Number(number) => Box::new(*number),
             Literals::String(string) => Box::new(string.clone()),
             Literals::Instance(instance) => Box::new(Rc::clone(instance)),
             Literals::Array(array) => Box::new(Rc::clone(array)),
