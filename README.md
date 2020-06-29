@@ -6,7 +6,7 @@
 
 <h2 align="center">A fast, minimal, and elegant programming language. 🕊️</h1>
 
-This is the main source code repository for the Dove Programming Language. I contains the interpreter and standard library.
+This is the main source code repository for the Dove Programming Language. It contains the interpreter and standard library.
 
 ### Contents 📦
 1. [Hello World](#hello-world)
