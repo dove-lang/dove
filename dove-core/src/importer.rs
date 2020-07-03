@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use crate::token::{Token, TokenType};
 use crate::error_handler::CompiletimeErrorHandler;
-use crate::dove::DoveOutput;
+use crate::dove_output::DoveOutput;
 
 pub struct Importer {
     tokens: Vec<Token>,

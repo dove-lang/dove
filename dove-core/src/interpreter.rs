@@ -9,7 +9,7 @@ use crate::dove_callable::*;
 use crate::dove_class::{DoveClass, DoveInstance};
 use crate::environment::Environment;
 use crate::constants::keywords;
-use crate::dove::DoveOutput;
+use crate::dove_output::DoveOutput;
 
 /// An enum indicating that execution was interrupted, for some reason.
 #[derive(Debug, Clone)]

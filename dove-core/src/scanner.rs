@@ -3,7 +3,7 @@ use std::rc::Rc;
 use crate::token::*;
 use crate::error_handler::*;
 use crate::constants::keywords::KEYWORD_TOKENS;
-use crate::dove::DoveOutput;
+use crate::dove_output::DoveOutput;
 
 pub struct Scanner {
     source: Vec<char>,

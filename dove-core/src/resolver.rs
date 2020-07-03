@@ -6,7 +6,7 @@ use crate::token::Token;
 use crate::interpreter::Interpreter;
 use crate::error_handler::CompiletimeErrorHandler;
 use crate::constants::keywords;
-use crate::dove::DoveOutput;
+use crate::dove_output::DoveOutput;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 enum FunctionType {

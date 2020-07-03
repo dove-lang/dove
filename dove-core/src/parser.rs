@@ -3,7 +3,7 @@ use std::rc::Rc;
 use crate::ast::{Expr, Stmt};
 use crate::token::{Token, TokenType, Literals};
 use crate::error_handler::CompiletimeErrorHandler;
-use crate::dove::DoveOutput;
+use crate::dove_output::DoveOutput;
 
 #[derive(Debug)]
 enum ParseError {

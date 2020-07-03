@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use crate::token::*;
-use crate::dove::DoveOutput;
+use crate::dove_output::DoveOutput;
 
 /// All ErrorHandlers should implement this trait
 /// and use its `report` method to display error messages.
