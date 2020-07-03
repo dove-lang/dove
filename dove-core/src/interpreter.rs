@@ -820,7 +820,7 @@ impl StmtVisitor for Interpreter {
 
             Stmt::Print(_, expression) => {
                 let literal = self.evaluate(expression)?;
-                println!("{}", stringify(literal));
+                self.output.print(stringify(literal));
                 Ok(())
             },
 
