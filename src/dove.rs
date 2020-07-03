@@ -5,12 +5,7 @@ use std::rc::Rc;
 
 use chrono::prelude::*;
 
-use dove_core::scanner::Scanner;
-use dove_core::importer::Importer;
-use dove_core::interpreter::Interpreter;
-use dove_core::parser::Parser;
-use dove_core::resolver::Resolver;
-use dove_core::dove_output::DoveOutput;
+use dove_core::{Scanner, Importer, Interpreter, Parser, Resolver, DoveOutput};
 
 pub struct Dove {
     interpreter: Interpreter,

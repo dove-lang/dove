@@ -12,3 +12,10 @@ pub mod error_handler;
 pub mod resolver;
 pub mod dove_class;
 pub mod data_types;
+
+pub use scanner::Scanner;
+pub use importer::Importer;
+pub use interpreter::Interpreter;
+pub use parser::Parser;
+pub use resolver::Resolver;
+pub use dove_output::DoveOutput;

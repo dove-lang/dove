@@ -6,7 +6,7 @@ mod dove;
 use std::env;
 use std::rc::Rc;
 
-use dove_core::dove_output::DoveOutput;
+use dove_core::DoveOutput;
 use dove::Dove;
 
 struct Output;
