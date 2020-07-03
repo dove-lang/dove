@@ -41,7 +41,7 @@ To start using Dove, please follow these steps:
 Visit → https://dove-lang.com/playground.
 
 #### Linux <a name="usage-linux"></a>
-1. Install the Dove interpreter binary → [v0.1.0](https://github.com/dove-lang/dove/releases/download/v0.1.0/dove)
+1. Install the Dove interpreter binary → [v0.1.2](https://github.com/dove-lang/dove/releases/download/v0.1.2/dove)
 2. Navigate to the file directory.
 ``` 
 cd [DIRECTORY]
@@ -56,7 +56,7 @@ dove example.dove
 ```
 
 #### Windows <a name="usage-windows"></a>
-1. Install the Dove interpreter binary → [v0.1.0](https://github.com/dove-lang/dove/releases/download/v0.1.0/dove.exe)
+1. Install the Dove interpreter binary → [v0.1.2](https://github.com/dove-lang/dove/releases/download/v0.1.2/dove.exe)
 
 2. Navigate to the file directory.
 ``` 
