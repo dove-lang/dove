@@ -1,6 +1,9 @@
+use std::rc::Rc;
+
 use crate::ast::{Expr, Stmt};
 use crate::token::{Token, TokenType, Literals};
 use crate::error_handler::CompiletimeErrorHandler;
+use crate::dove::DoveOutput;
 
 #[derive(Debug)]
 enum ParseError {
@@ -34,7 +37,7 @@ pub struct Parser {
 }
 
 impl Parser {
-    pub fn new(tokens: Vec<Token>, is_in_repl: bool) -> Parser {
+    pub fn new(tokens: Vec<Token>, is_in_repl: bool, output: Rc<dyn DoveOutput>) -> Parser {
         Parser {
             current: 0,
             tokens,
@@ -43,6 +46,7 @@ impl Parser {
             is_in_unfinished_blk: false,
             error_handler: CompiletimeErrorHandler {
                 had_error: false,
+                output,
             },
             nested_level: 0,
             statement_nested_level: 0,

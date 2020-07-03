@@ -1,25 +1,32 @@
+use std::rc::Rc;
+
 use crate::token::*;
+use crate::dove::DoveOutput;
 
 /// All ErrorHandlers should implement this trait
 /// and use its `report` method to display error messages.
 pub trait ErrorHandler {
-    fn report(&mut self, line: Option<usize>, where_: String, message: String) {
-        if let Some(line) = line {
-            e_red_ln!("[line {}] Error{}: {}", line, where_, message);
+    fn report(&mut self, line: Option<usize>, where_: String, message: String, output: Rc<dyn DoveOutput>) {
+        let msg = if let Some(line) = line {
+            format!("[line {}] Error{}: {}", line, where_, message)
         } else {
-            e_red_ln!("Error: {}",message);
-        }
+            format!("Error: {}",message)
+        };
+
+        output.error(msg);
     }
 }
 
 pub struct RuntimeErrorHandler {
     pub had_runtime_error: bool,
+    pub output: Rc<dyn DoveOutput>,
 }
 
 impl RuntimeErrorHandler {
-    pub fn new() -> RuntimeErrorHandler {
+    pub fn new(output: Rc<dyn DoveOutput>) -> RuntimeErrorHandler {
         RuntimeErrorHandler {
             had_runtime_error: false,
+            output,
         }
     }
 
@@ -32,6 +39,7 @@ impl RuntimeErrorHandler {
                 _ => "".to_string(),
             },
             error.message,
+            Rc::clone(&self.output),
         );
     }
 }
@@ -40,25 +48,27 @@ impl ErrorHandler for RuntimeErrorHandler {}
 
 pub struct CompiletimeErrorHandler {
     pub had_error: bool,
+    pub output: Rc<dyn DoveOutput>,
 }
 
 impl CompiletimeErrorHandler {
-    pub fn new() -> CompiletimeErrorHandler {
+    pub fn new(output: Rc<dyn DoveOutput>) -> CompiletimeErrorHandler {
         CompiletimeErrorHandler {
             had_error: false,
+            output,
         }
     }
 
     pub fn line_error(&mut self, line: usize, message: String) {
         self.had_error = true;
-        self.report(Some(line), "".to_string(), message);
+        self.report(Some(line), "".to_string(), message, Rc::clone(&self.output));
     }
 
     pub fn token_error(&mut self, token: Token, message: String) {
         self.had_error = true;
         match token.token_type {
-            TokenType::EOF => self.report(Some(token.line), " at end".to_string(), message),
-            _ => self.report(Some(token.line), format!(" at '{}'", token.lexeme), message),
+            TokenType::EOF => self.report(Some(token.line), " at end".to_string(), message, Rc::clone(&self.output)),
+            _ => self.report(Some(token.line), format!(" at '{}'", token.lexeme), message, Rc::clone(&self.output)),
         }
     }
 }

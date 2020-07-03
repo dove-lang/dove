@@ -1,5 +1,8 @@
+use std::rc::Rc;
+
 use crate::token::{Token, TokenType};
 use crate::error_handler::CompiletimeErrorHandler;
+use crate::dove::DoveOutput;
 
 pub struct Importer {
     tokens: Vec<Token>,
@@ -13,11 +16,12 @@ pub struct Importer {
 }
 
 impl Importer {
-    pub fn new(tokens: Vec<Token>) -> Importer {
+    pub fn new(tokens: Vec<Token>, output: Rc<dyn DoveOutput>) -> Importer {
         Importer {
             tokens,
             error_handler: CompiletimeErrorHandler {
                 had_error: false,
+                output,
             },
             expecting_file_name: false,
             current: 0,

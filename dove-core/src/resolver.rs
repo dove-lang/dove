@@ -1,10 +1,12 @@
 use std::collections::HashMap;
+use std::rc::Rc;
 
 use crate::ast::{Expr, Stmt};
 use crate::token::Token;
 use crate::interpreter::Interpreter;
 use crate::error_handler::CompiletimeErrorHandler;
 use crate::constants::keywords;
+use crate::dove::DoveOutput;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 enum FunctionType {
@@ -31,11 +33,11 @@ pub struct Resolver<'a> {
 }
 
 impl<'a> Resolver<'a> {
-    pub fn new(interpreter: &'a mut Interpreter) -> Resolver<'a> {
+    pub fn new(interpreter: &'a mut Interpreter, output: Rc<dyn DoveOutput>) -> Resolver<'a> {
         Resolver {
             scopes: vec![],
             interpreter,
-            error_handler: CompiletimeErrorHandler::new(),
+            error_handler: CompiletimeErrorHandler::new(output),
             current_function: FunctionType::None,
             current_class: ClassType::None,
             in_loop: false,

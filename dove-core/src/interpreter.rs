@@ -9,6 +9,7 @@ use crate::dove_callable::*;
 use crate::dove_class::{DoveClass, DoveInstance};
 use crate::environment::Environment;
 use crate::constants::keywords;
+use crate::dove::DoveOutput;
 
 /// An enum indicating that execution was interrupted, for some reason.
 #[derive(Debug, Clone)]
@@ -34,16 +35,19 @@ pub struct Interpreter {
     pub error_handler: RuntimeErrorHandler,
     /// Depth of local variables, keyed by (line number, variable name)
     locals: HashMap<(usize, String), usize>,
+
+    output: Rc<dyn DoveOutput>,
 }
 
 impl Interpreter {
-    pub fn new() -> Interpreter {
+    pub fn new(output: Rc<dyn DoveOutput>) -> Interpreter {
         let env = Rc::new(RefCell::new(Environment::new(Option::None)));
         Interpreter{
             globals: env.clone(),
             environment: env.clone(),
-            error_handler: RuntimeErrorHandler::new(),
+            error_handler: RuntimeErrorHandler::new(Rc::clone(&output)),
             locals: HashMap::new(),
+            output,
         }
     }
 
@@ -53,9 +57,7 @@ impl Interpreter {
             // no return value should be expected.
             self.execute(stmt).unwrap_or_else(|interrupt| match interrupt {
                 Interrupt::Error(error) => self.error_handler.runtime_error(error),
-                _ => {
-                    e_red_ln!("Unexpected interrupt: {:?}", interrupt);
-                },
+                _ => self.output.error(format!("Unexpected interrupt: {:?}", interrupt)),
             });
         }
     }
