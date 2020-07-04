@@ -6,8 +6,15 @@ edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[workspace]
+members = [
+    "dove-core",
+    "dove-cli",
+    "dove-wasm",
+]
+
 [dependencies]
-cute = "0.3.0"
-lazy_static = "1.4.0"
-colour = "0.5.0"
-chrono = "0.4.11"
+dove-core = { path = "dove-core" }
+
+[lib]
+path = "dove-core"

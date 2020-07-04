@@ -1,33 +1,33 @@
 use std::fs::File;
 use std::{ io, process };
 use std::io::{ErrorKind, Read, Write};
+use std::rc::Rc;
 
 use chrono::prelude::*;
 
-use crate::scanner::Scanner;
-use crate::importer::Importer;
-use crate::interpreter::Interpreter;
-use crate::parser::Parser;
-use crate::resolver::Resolver;
+use dove_core::{Scanner, Importer, Interpreter, Parser, Resolver, DoveOutput};
 
 pub struct Dove {
     interpreter: Interpreter,
-    is_repl_unfinished: bool,
+    pub is_repl_unfinished: bool,
 
     /// Keep track of what files this Dove has visited.
     visited_imports: Vec<String>,
+
+    output: Rc<dyn DoveOutput>,
 }
 
 impl Dove {
-    pub fn new() -> Self {
+    pub fn new(output: Rc<dyn DoveOutput>) -> Self {
         Dove {
-            interpreter: Interpreter::new(),
+            interpreter: Interpreter::new(Rc::clone(&output)),
             is_repl_unfinished: false,
             visited_imports: Vec::new(),
+            output,
         }
     }
 
-    pub fn run_file(mut self, path: &String) -> Self {
+    pub fn run_file(&mut self, path: &str) {
         let mut f = match File::open(path) {
             Ok(file) => file,
             Err(error) => match error.kind() {
@@ -51,12 +51,10 @@ impl Dove {
             }
         }
 
-        self = self.run(content.chars().collect(), false);
-
-        self
+        self.run(content.chars().collect(), false);
     }
 
-    pub fn run_prompt(mut self) {
+    pub fn run_prompt(&mut self) {
         // Print version & time information.
         let date = Local::now();
         cyan_ln!("Dove 0.1.1 (default, {})", date.format("%b %e %Y, %H:%M:%S"));
@@ -82,7 +80,7 @@ impl Dove {
 
             let input = format!("{}{}", code_buffer, input);
 
-            self = self.run(input.chars().collect(), true);
+            self.run(input.chars().collect(), true);
 
             // If Dove is in an unfinished block, store `input` back in `code_buffer`,
             // otherwise clear `code_buffer`.
@@ -97,11 +95,11 @@ impl Dove {
         }
     }
 
-    fn run(mut self, source: Vec<char>, is_in_repl: bool) -> Self {
-        let scanner = Scanner::new(source);
+    pub fn run(&mut self, source: Vec<char>, is_in_repl: bool) {
+        let scanner = Scanner::new(source, Rc::clone(&self.output));
         let tokens = scanner.scan_tokens();
 
-        let mut importer = Importer::new(tokens);
+        let mut importer = Importer::new(tokens, Rc::clone(&self.output));
         let (tokens, imports) = importer.analyze();
 
         // Run the import files.
@@ -112,10 +110,10 @@ impl Dove {
             }
 
             self.visited_imports.push(import.clone());
-            self = self.run_file(&import);
+            self.run_file(&import);
         }
 
-        let mut parser = Parser::new(tokens, is_in_repl);
+        let mut parser = Parser::new(tokens, is_in_repl, Rc::clone(&self.output));
         let statements = parser.program();
 
         // Check if unfinished status change.
@@ -128,10 +126,9 @@ impl Dove {
         //     return self;
         // }
 
-        let mut resolver = Resolver::new(&mut self.interpreter);
+        let mut resolver = Resolver::new(&mut self.interpreter, Rc::clone(&self.output));
         resolver.resolve(&statements);
 
         self.interpreter.interpret(statements);
-        self
     }
 }

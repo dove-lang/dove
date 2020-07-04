@@ -56,7 +56,8 @@ impl DoveCallable for DoveFunction {
         match interpreter.execute_implicit_return(statements, environment) {
             Ok(implicit_return_val) => Ok(implicit_return_val),
             Err(Interrupt::Return(return_val)) => Ok(return_val),
-            Err(_) => Err(RuntimeError::new(ErrorLocation::Line(10), format!("todo"))),
+            Err(Interrupt::Error(err)) => Err(err),
+            Err(_) => Err(RuntimeError::new(ErrorLocation::Unspecified, "Unexpected break/continue statement.".to_string())),
         }
     }
 

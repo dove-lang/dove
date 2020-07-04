@@ -1,6 +1,9 @@
+use std::rc::Rc;
+
 use crate::token::*;
 use crate::error_handler::*;
 use crate::constants::keywords::KEYWORD_TOKENS;
+use crate::dove_output::DoveOutput;
 
 pub struct Scanner {
     source: Vec<char>,
@@ -13,12 +16,12 @@ pub struct Scanner {
 }
 
 impl Scanner {
-    pub fn new(source: Vec<char>) -> Scanner {
+    pub fn new(source: Vec<char>, output: Rc<dyn DoveOutput>) -> Scanner {
         Scanner{
             source,
             tokens: Vec::new(),
             start: 0, current: 0, line: 1,
-            error_handler: CompiletimeErrorHandler::new(),
+            error_handler: CompiletimeErrorHandler::new(output),
         }
     }
 }

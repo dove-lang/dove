@@ -1,8 +1,9 @@
-print "hmm".length
-print "hello world".chars()
+fun fib(n) {
+    if n == 0 or n == 1 {
+        return 1
+    } else {
+        return fib(n - 1) + fib(n - 2)
+    }
+}
 
-let arr = [1,2,3]
-arr.remove(1)
-print arr
-arr.remove(3)
-arr.remove("hmm")
+print fib(4)
