@@ -105,7 +105,13 @@ impl Interpreter {
             }
 
             // Evaluate the last expression
-            let return_value = self.evaluate(expr)?;
+            let return_value = match self.evaluate(expr) {
+                Ok(value) => value,
+                Err(err) => {
+                    self.environment = previous;
+                    return Err(err);
+                }
+            };
 
             self.environment = previous;
             Ok(return_value)
@@ -433,7 +439,7 @@ impl ExprVisitor for Interpreter {
             }
 
             Expr::IfExpr(condition, then_branch, else_branch) => {
-                let condition_val = is_truthy(&self.evaluate(condition).unwrap());
+                let condition_val = is_truthy(&self.evaluate(condition)?);
 
                 let branch = if condition_val {
                     then_branch
