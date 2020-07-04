@@ -35,6 +35,7 @@ impl Scanner {
         }
 
         self.tokens.push(Token::new(
+            self.token_id(),
             TokenType::EOF,
             "".to_string(),
             None,
@@ -42,6 +43,11 @@ impl Scanner {
         ));
 
         self.tokens
+    }
+
+    /// Generate the unique id for a token. It is at least 1, so code generated tokens can have id 0.
+    fn token_id(&self) -> usize {
+        self.tokens.len() + 1
     }
 
     fn scan_token(&mut self) {
@@ -218,6 +224,7 @@ impl Scanner {
     fn add_token(&mut self, token_type: TokenType, literal: Option<Literals>) {
         let lexeme_slice: String = self.source[self.start..self.current].iter().collect();
         self.tokens.push(Token::new(
+            self.token_id(),
             token_type,
             lexeme_slice,
             literal,
