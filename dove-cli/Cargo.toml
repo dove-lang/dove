@@ -1,0 +1,12 @@
+[package]
+name = "dove-cli"
+version = "0.1.0"
+authors = ["Peter Ke <peterke0911@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+dove-core = { path = "../dove-core" }
+colour = "0.5.0"
+chrono = "0.4.11"
