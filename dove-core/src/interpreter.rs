@@ -33,8 +33,8 @@ pub struct Interpreter {
     pub globals: Rc<RefCell<Environment>>,
     environment: Rc<RefCell<Environment>>,
     pub error_handler: RuntimeErrorHandler,
-    /// Depth of local variables, keyed by (line number, variable name)
-    locals: HashMap<(usize, String), usize>,
+    /// Depth of local variables, keyed by token id
+    locals: HashMap<usize, usize>,
 
     output: Rc<dyn DoveOutput>,
 }
@@ -128,11 +128,11 @@ impl Interpreter {
     }
 
     fn insert_local(&mut self, variable: &Token, depth: usize) {
-        self.locals.insert((variable.line, variable.lexeme.clone()), depth);
+        self.locals.insert(variable.id, depth);
     }
 
     fn get_local(&self, variable: &Token) -> Option<&usize> {
-        self.locals.get(&(variable.line, variable.lexeme.clone()))
+        self.locals.get(&variable.id)
     }
 
     fn lookup_variable(&self, variable: &Token) -> Option<Literals> {
@@ -190,22 +190,22 @@ impl ExprVisitor for Interpreter {
                     },
                     TokenType::PLUS_EQUAL | TokenType::PLUS_PLUS => {
                         self.evaluate(&Expr::Binary(Box::new(Expr::Variable(name.clone())),
-                                                         Token::new(TokenType::PLUS, "+".to_string(), None, line),
+                                                         Token::new(0, TokenType::PLUS, "+".to_string(), None, line),
                                                          value.clone()))?
                     },
                     TokenType::MINUS_EQUAL | TokenType::MINUS_MINUS => {
                         self.evaluate(&Expr::Binary(Box::new(Expr::Variable(name.clone())),
-                                                    Token::new(TokenType::MINUS, "-".to_string(), None, line),
+                                                    Token::new(0, TokenType::MINUS, "-".to_string(), None, line),
                                                     value.clone()))?
                     },
                     TokenType::STAR_EQUAL => {
                         self.evaluate(&Expr::Binary(Box::new(Expr::Variable(name.clone())),
-                                                    Token::new(TokenType::STAR, "*".to_string(), None, line),
+                                                    Token::new(0, TokenType::STAR, "*".to_string(), None, line),
                                                     value.clone()))?
                     },
                     TokenType::SLASH_EQUAL => {
                         self.evaluate(&Expr::Binary(Box::new(Expr::Variable(name.clone())),
-                                                    Token::new(TokenType::SLASH, "/".to_string(), None, line),
+                                                    Token::new(0, TokenType::SLASH, "/".to_string(), None, line),
                                                     value.clone()))?
                     }
                     _ => panic!("Magically found non assignment operator wrapped inside an Expr::Assign.")

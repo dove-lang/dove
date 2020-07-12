@@ -7,3 +7,10 @@ fun fib(n) {
 }
 
 print fib(4)
+
+fun test() {
+    let n = 0
+    print if n == 0 { n } else { "hmm" }
+}
+
+test()
