@@ -263,6 +263,8 @@ impl ExprVisitor for Interpreter {
                         match (left_val, right_val) {
                             (Literals::Number(l), Literals::Number(r)) => Ok(Literals::Number(l + r)),
                             (Literals::String(l), Literals::String(r)) => Ok(Literals::String(format!("{}{}", l, r))),
+                            (Literals::String(l), Literals::Number(r)) => Ok(Literals::String(format!("{}{}", l, r))),
+                            (Literals::Number(l), Literals::String(r)) => Ok(Literals::String(format!("{}{}", l, r))),
                             (Literals::Array(l), Literals::Array(r)) => {
                                 let mut res = Vec::new();
                                 for val in l.borrow().iter() {
