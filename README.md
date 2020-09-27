@@ -32,7 +32,7 @@ Output:
 ```
 
 ### Documentation 📝 <a name="documentation"></a>
-Take a look at the Dove docs → https://dove-lang.github.io/dove-docs/ 
+Take a look at the Dove docs → https://dove-lang.github.io/docs/ 
 
 ### Usage 🏃 <a name="usage"></a>
 To start using Dove, please follow these steps:
